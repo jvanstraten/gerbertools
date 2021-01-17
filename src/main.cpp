@@ -26,21 +26,30 @@
 #include <fstream>
 #include <cmath>
 #include "gerber.hpp"
+#include "ncdrill.hpp"
 
 int main(int argc, char *argv[]) {
-    //std::ifstream f("/mnt/e/git/DARE subrepos/projects/stratos2plus/orders/2015-06-16/fts/fts.GKO");
-    std::ifstream f("pcb.GTO");
+    /*std::ifstream f("/mnt/e/git/DARE subrepos/projects/stratos2plus/orders/2015-06-16/fts/fts.GBL");
+    //std::ifstream f("pcb.GTO");
     if (!f.is_open()) {
         throw std::runtime_error("file not found");
     }
     f.exceptions(std::ifstream::badbit);
-    auto gerber = gerber::Gerber(f);
+    auto gerber = gerber::Gerber(f);*/
+
+    //std::ifstream f("/mnt/e/git/DARE subrepos/projects/stratos2plus/orders/2015-06-16/fts/fts.TXT");
+    std::ifstream f("O100030117 10by10 Green 1.6mm HASL 10pcs/mcu.TXT");
+    if (!f.is_open()) {
+        throw std::runtime_error("file not found");
+    }
+    f.exceptions(std::ifstream::badbit);
+    auto gerber = ncdrill::NCDrill(f);
 
     std::ofstream svg("kek.svg");
     svg << R"(<svg width="10000" height="10000" xmlns="http://www.w3.org/2000/svg">))" << std::endl;
     int color = 0;
-    for (const auto &p : gerber.get_outline_paths()) {
-        if (ClipperLib::Orientation(p)) {
+    for (const auto &p : gerber.get_paths()) {
+        if (!ClipperLib::Orientation(p)) {
             color++;
             int r = 128 + 127*std::sin(color);
             int g = 128 + 127*std::sin(color + 2*M_PI / 3);

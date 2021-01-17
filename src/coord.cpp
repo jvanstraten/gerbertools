@@ -70,6 +70,7 @@ void Format::try_to_use() const {
 Format::Format(double max_deviation, double miter_limit) :
     fmt_configured(false),
     unit_configured(false),
+    add_trailing_zeros(false),
     used(false),
     miter_limit(miter_limit),
     max_deviation(max_deviation)
@@ -85,6 +86,14 @@ void Format::configure_format(int n_int, int n_dec) {
     fmt_configured = true;
     this->n_int = n_int;
     this->n_dec = n_dec;
+}
+
+/**
+ * Configures whether trailing zeros may be omitted.
+ */
+void Format::configure_trailing_zeros(bool add_trailing_zeros) {
+    try_to_reconfigure();
+    this->add_trailing_zeros = add_trailing_zeros;
 }
 
 /**
@@ -107,11 +116,25 @@ void Format::configure_mm() {
 
 /**
  * Parses a fixed-point coordinate and converts it to the internal 64-bit
- * CInt representation.
+ * CInt representation. Falls back to parse_float() when a period is found in
+ * the string, however.
  */
 CInt Format::parse_fixed(const std::string &s) const {
     try_to_use();
-    return std::stoll(s) * PRECISION_MULT;
+    if (s.find('.') != std::string::npos) {
+        return parse_float(s);
+    }
+    size_t add_zeros = 0;
+    if (add_trailing_zeros) {
+        size_t digits = s.size();
+        if (s.at(0) == '-' || s.at(0) == '+') {
+            digits--;
+        }
+        if (digits < n_int + n_dec) {
+            add_zeros = n_int + n_dec - digits;
+        }
+    }
+    return std::stoll(s + std::string(add_zeros, '0')) * PRECISION_MULT;
 }
 
 /**

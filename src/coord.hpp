@@ -68,6 +68,12 @@ private:
     int n_dec;
 
     /**
+     * Whether to add trailing zeros rather than leading zeros when too few
+     * digits are given.
+     */
+    bool add_trailing_zeros;
+
+    /**
      * Whether the unit (inch or millimeters) has been configured yet.
      */
     bool unit_configured;
@@ -128,6 +134,11 @@ public:
     void configure_format(int n_int, int n_dec);
 
     /**
+     * Configures whether trailing zeros may be omitted.
+     */
+    void configure_trailing_zeros(bool add_trailing_zeros);
+
+    /**
      * Use Freedum units.
      */
     void configure_inch();
@@ -139,7 +150,8 @@ public:
 
     /**
      * Parses a fixed-point coordinate and converts it to the internal 64-bit
-     * CInt representation.
+     * CInt representation. Falls back to parse_float() when a period is found
+     * in the string, however.
      */
     CInt parse_fixed(const std::string &s) const;
 

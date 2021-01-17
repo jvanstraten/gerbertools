@@ -9,6 +9,7 @@ add_executable(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/aperture.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/aperture_macro.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/gerber.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ncdrill.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
 )
 target_include_directories(
