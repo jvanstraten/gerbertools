@@ -36,6 +36,9 @@
 #include "aperture.hpp"
 #include "aperture_macro.hpp"
 
+/**
+ * Namespace for the Gerber file reader.
+ */
 namespace gerber {
 
 using Path = plot::Path;
@@ -206,6 +209,12 @@ private:
     Paths outline;
 
     /**
+     * Whether the outline has been constructed yet. If false, outline contains
+     * the accumulated paths. If true, outline represents the board shape.
+     */
+    bool outline_constructed;
+
+    /**
      * Render the current aperture to the current plot, taking into
      * consideration all configured aperture transformations.
      */
@@ -246,9 +255,18 @@ public:
     explicit Gerber(std::istream &s);
 
     /**
-     * Returns the paths representing the gerber file.
+     * Returns the paths representing the Gerber file.
      */
     const Paths &get_paths() const;
+
+    /**
+     * Attempts to interpret the Gerber file data as the board outline and/or
+     * milling data, returning polygons that follow the center of closed loops
+     * of traces/regions in the file rather than the traces themselves. This is
+     * a bit sensitive to round-off error and probably not work right if the
+     * file isn't a proper outline; your mileage may vary.
+     */
+    const Paths &get_outline_paths();
 
     /**
      * Converts a fixed-point coordinate returned by get_paths() to millimeters.

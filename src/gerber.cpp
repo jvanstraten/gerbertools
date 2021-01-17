@@ -614,6 +614,7 @@ Gerber::Gerber(std::istream &s) {
     ap_scale = 1.0;
     plot_stack = {std::make_shared<plot::Plot>()};
     region_mode = false;
+    outline_constructed = false;
 
     bool terminated = false;
     bool is_attrib = false;
@@ -653,10 +654,146 @@ Gerber::Gerber(std::istream &s) {
 }
 
 /**
- * Returns the paths representing the gerber file.
+ * Returns the paths representing the Gerber file.
  */
 const Paths &Gerber::get_paths() const {
     return plot_stack.back()->get_dark();
+}
+
+/**
+ * Attempts to interpret the Gerber file data as the board outline and/or
+ * milling data, returning polygons that follow the center of closed loops
+ * of traces/regions in the file rather than the traces themselves. This is
+ * a bit sensitive to round-off error and probably not work right if the
+ * file isn't a proper outline; your mileage may vary.
+ */
+const Paths &Gerber::get_outline_paths() {
+
+    // Return immediately when the outline has already been constructed.
+    if (outline_constructed) {
+        return outline;
+    }
+
+    // Make a list of path indices that end in a particular coordinate for each
+    // coordinate (within tolerance).
+    using EndPoints = std::shared_ptr<std::list<size_t>>;
+    std::map<std::pair<double, double>, EndPoints> point_map;
+    std::set<EndPoints> points;
+    std::vector<std::pair<EndPoints, EndPoints>> end_points;
+    double eps = fmt.get_max_deviation();
+    double eps_sqr = eps * eps;
+    for (const auto &path : outline) {
+        std::pair<EndPoints, EndPoints> endpts;
+        for (int endpt = 0; endpt < 2; endpt++) {
+            auto c_fix = endpt ? path.back() : path.front();
+            auto c = std::make_pair<double, double>(c_fix.X, c_fix.Y);
+
+            // Look for exact match first.
+            auto it = point_map.find(c);
+            if (it == point_map.end()) {
+
+                // Nope. Try inexact.
+                auto start = point_map.lower_bound({c.first - eps, c.second - eps});
+                auto end = point_map.upper_bound({c.first + eps, c.second + eps});
+                double least_error_sqr = INFINITY;
+                for (auto it2 = start; it2 != end; ++it2) {
+                    auto c2 = it2->first;
+                    double dx = c.first - c2.first;
+                    double dy = c.second - c2.second;
+                    double error_sqr = dx*dx + dy*dy;
+                    if (error_sqr < eps_sqr && error_sqr < least_error_sqr) {
+                        least_error_sqr = error_sqr;
+                        it = it2;
+                    }
+                }
+                if (it == point_map.end()) {
+
+                    // Nope. Add a new record for this point.
+                    EndPoints ep = std::make_shared<std::list<size_t>>();
+                    it = point_map.insert({c, ep}).first;
+                    points.insert(ep);
+
+                }
+            }
+
+            // Record the path as starting or ending in the point we found or
+            // constructed.
+            it->second->push_back(end_points.size());
+
+            // Also record the other direction; from path to either point.
+            if (endpt == 0) {
+                endpts.first = it->second;
+            } else {
+                endpts.second = it->second;
+            }
+        }
+        end_points.push_back(endpts);
+    }
+
+    Paths paths;
+    while (!points.empty()) {
+        auto cur = *(points.begin());
+
+        // Any point with something other than two paths ending in it is
+        // non-manifold and will be ignored.
+        if (cur->size() != 2) {
+            points.erase(cur);
+            continue;
+        }
+
+        // We have a potential start point. Now we just need to see if it's a
+        // valid cycle or not. Even if it isn't, we can remove all the points
+        // we find from the set.
+        bool is_loop = true;
+        Path path;
+        size_t start_index = cur->front();
+        size_t cur_index = cur->back();
+        while (true) {
+            points.erase(cur);
+            auto endpts = end_points.at(cur_index);
+            auto section = outline.at(cur_index);
+            if (endpts.first == cur) {
+                path.insert(path.end(), section.begin(), std::prev(section.end()));
+                cur = endpts.second;
+            } else if (endpts.second == cur) {
+                path.insert(path.end(), section.rbegin(), std::prev(section.rend()));
+                cur = endpts.first;
+            } else {
+                throw std::runtime_error("this should never happen");
+            }
+            if (cur_index == start_index) {
+                break;
+            }
+            if (cur->size() != 2) {
+                is_loop = false;
+                break;
+            }
+            if (cur->front() == cur_index) {
+                cur_index = cur->back();
+            } else if (cur->back() == cur_index) {
+                cur_index = cur->front();
+            } else {
+                throw std::runtime_error("this should never happen");
+            }
+        }
+
+        // If this is a valid loop, add the polygon.
+        if (is_loop) {
+            if (!ClipperLib::Orientation(path)) {
+                ClipperLib::ReversePath(path);
+            }
+            paths.push_back(std::move(path));
+        }
+
+    }
+
+    // Simplify the polygons with the correct fill rule.
+    ClipperLib::SimplifyPolygons(paths, ClipperLib::pftEvenOdd);
+
+    // Cache and return the construct outline.
+    outline_constructed = true;
+    outline = paths;
+    return outline;
 }
 
 /**

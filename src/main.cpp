@@ -28,7 +28,8 @@
 #include "gerber.hpp"
 
 int main(int argc, char *argv[]) {
-    std::ifstream f("/mnt/e/git/DARE subrepos/projects/stratos2plus/orders/2015-06-16/fts/fts.GBL");
+    //std::ifstream f("/mnt/e/git/DARE subrepos/projects/stratos2plus/orders/2015-06-16/fts/fts.GKO");
+    std::ifstream f("pcb.GTO");
     if (!f.is_open()) {
         throw std::runtime_error("file not found");
     }
@@ -38,7 +39,7 @@ int main(int argc, char *argv[]) {
     std::ofstream svg("kek.svg");
     svg << R"(<svg width="10000" height="10000" xmlns="http://www.w3.org/2000/svg">))" << std::endl;
     int color = 0;
-    for (const auto &p : gerber.get_paths()) {
+    for (const auto &p : gerber.get_outline_paths()) {
         if (ClipperLib::Orientation(p)) {
             color++;
             int r = 128 + 127*std::sin(color);
@@ -54,7 +55,7 @@ int main(int argc, char *argv[]) {
             svg << "L " << gerber.to_mm(c.X) * 25 + 5000
                 << " " << gerber.to_mm(-c.Y) * 25 + 5000 << " ";
         }
-    svg << R"("/>)" << std::endl;
+        svg << R"("/>)" << std::endl;
     }
     svg << R"(</svg>)" << std::endl;
 
