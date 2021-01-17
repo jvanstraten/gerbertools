@@ -34,89 +34,305 @@
 #include <memory>
 #include "clipper.hpp"
 
+/**
+ * Shorthand for the Clipper namespace.
+ */
 namespace CL { using namespace ClipperLib; }
+
+/**
+ * Internal 64-bit fixed-point coordinate representation. Conversion from Gerber
+ * units and to millimeters is handled by the CoordFormat class.
+ */
 using CInt = CL::cInt;
+
+/**
+ * 2D point, consisting of two CInts.
+ */
 using CPt = CL::IntPoint;
 
-const CInt PRECISION_MULT = 0x1000000ll;
-const CInt MITER_LIMIT = 0x10000000ll;
-const CInt MAX_DEVIATION = 0x4000000ll;
-
-class CoordUnit {
-private:
-    bool configured;
-    double factor;
-public:
-    CoordUnit() : configured(false), factor(0.0) {}
-    explicit CoordUnit(double factor) : configured(true), factor(factor) {}
-    double unit_to_mm(double unit) const {
-        if (!configured) {
-            throw std::runtime_error("coordinate parsed before unit configured");
-        }
-        return unit * factor;
-    }
-    double mm_to_unit(double mm) const {
-        if (!configured) {
-            throw std::runtime_error("coordinate parsed before unit configured");
-        }
-        return mm / factor;
-    }
-};
-
+/**
+ * Coordinate format handling. This class converts between Gerber fixed-point
+ * and floating point format coordinates, an internal high-accuracy integer
+ * representation used for polygon operations, and millimeters for the output.
+ * It also stores maximum deviation and miter limit for the polygon operations.
+ */
 class CoordFormat {
 private:
-    bool configured;
+
+    /**
+     * Whether the fixed point format has been configured yet.
+     */
+    bool fmt_configured;
+
+    /**
+     * Number of integer positions.
+     */
     int n_int;
+
+    /**
+     * Number of decimal positions.
+     */
     int n_dec;
-public:
-    CoordUnit unit;
-    CoordFormat() : configured(false), n_int(0), n_dec(0) {}
-    CoordFormat(int n_int, int n_dec) : configured(true), n_int(n_int), n_dec(n_dec) {}
-    CInt parse_fixed(const std::string &s) const {
-        if (!configured) {
-            throw std::runtime_error("coordinate parsed before format configured");
+
+    /**
+     * Whether the unit (inch or millimeters) has been configured yet.
+     */
+    bool unit_configured;
+
+    /**
+     * Conversion factor from Gerber unit to millimeters; 25.4 for inch, 1.0 for
+     * millimeters.
+     */
+    double factor;
+
+    /**
+     * Multiplier from Gerber fixed format to our high-accuracy 64-bit internal
+     * fixed-point representation.
+     */
+    static const CInt PRECISION_MULT = 0x1000000ll;
+
+    /**
+     * Whether any coordinates have been converted yet. An exception is thrown
+     * if the format is reconfigured after this, as the internal representation
+     * changes with the Gerber format.
+     */
+    mutable bool used;
+
+    /**
+     * Maximum arc deviation in millimeters.
+     */
+    double max_deviation;
+
+    /**
+     * Miter limit in millimeters.
+     */
+    double miter_limit;
+
+    /**
+     * Throws an exception if the coordinate format has been used to convert
+     * coordinates already.
+     */
+    void try_to_reconfigure() const {
+        if (used) {
+            throw std::runtime_error(
+                "cannot reconfigure coordinate format after "
+                "coordinates have already been interpreted"
+            );
         }
+    }
+
+    /**
+     * Throws an exception if the coordinate format has not been fully
+     * configured yet.
+     */
+    void try_to_use() const {
+        if (!fmt_configured) {
+            throw std::runtime_error(
+                "cannot convert coordinates before coordinate "
+                "format is configured"
+            );
+        }
+        if (!unit_configured) {
+            throw std::runtime_error(
+                "cannot convert coordinates before unit is configured"
+            );
+        }
+        used = true;
+    }
+
+public:
+
+    /**
+     * Constructs a new coordinate format object with the given maximum arc
+     * deviation and miter limit (both in millimeters).
+     */
+    explicit CoordFormat(double max_deviation=0.005, double miter_limit=1.0) :
+        fmt_configured(false),
+        unit_configured(false),
+        used(false),
+        miter_limit(miter_limit),
+        max_deviation(max_deviation)
+    {
+    }
+
+    /**
+     * Configure the coordinate format to the given number of integer and
+     * decimal digits.
+     */
+    void configure_format(int n_int, int n_dec) {
+        try_to_reconfigure();
+        fmt_configured = true;
+        this->n_int = n_int;
+        this->n_dec = n_dec;
+    }
+
+    /**
+     * Use Freedum units.
+     */
+    void configure_inch() {
+        try_to_reconfigure();
+        unit_configured = true;
+        factor = 25.4;
+    }
+
+    /**
+     * Use sane units.
+     */
+    void configure_mm() {
+        try_to_reconfigure();
+        unit_configured = true;
+        factor = 1.0;
+    }
+
+    /**
+     * Parses a fixed-point coordinate and converts it to the internal 64-bit
+     * CInt representation.
+     */
+    CInt parse_fixed(const std::string &s) const {
+        try_to_use();
         return std::stoll(s) * PRECISION_MULT;
     }
+
+    /**
+     * Parses a floating-point coordinate and converts it to the internal 64-bit
+     * CInt representation.
+     */
     CInt parse_float(const std::string &s) const {
-        if (!configured) {
-            throw std::runtime_error("coordinate parsed before format configured");
-        }
+        try_to_use();
         return std::round(std::stod(s) * std::pow(10.0, n_dec) * PRECISION_MULT);
     }
+
+    /**
+     * Converts a previously parsed floating-point coordinate to the internal
+     * 64-bit CInt representation.
+     */
     CInt to_fixed(double d) const {
+        try_to_use();
         return std::round(d * std::pow(10.0, n_dec) * PRECISION_MULT);
     }
-    double to_unit(CInt i) const {
-        return i / (std::pow(10.0, n_dec) * PRECISION_MULT);
-    }
-    double miter_limit() const {
-        return to_fixed(unit.mm_to_unit(0.005));
-    }
-    double max_deviation() const {
-        return to_fixed(unit.mm_to_unit(0.005));
-    }
-};
 
-enum class InterpolationMode {
-    UNDEFINED, LINEAR, CIRCULAR_CW, CIRCULAR_CCW
-};
+    /**
+     * Returns the maximum deviation in the internal 64-bit CInt representation.
+     */
+    CInt get_max_deviation() const {
+        try_to_use();
+        return to_fixed(max_deviation / factor);
+    }
 
-enum class QuadrantMode {
-    UNDEFINED, SINGLE, MULTI
+    /**
+     * Returns the miter limit in the internal 64-bit CInt representation.
+     */
+    CInt get_miter_limit() const {
+        try_to_use();
+        return to_fixed(miter_limit / factor);
+    }
+
+    /**
+     * Returns a ClipperOffset object with appropriate configuration.
+     */
+    CL::ClipperOffset build_clipper_offset() const {
+        return CL::ClipperOffset(get_miter_limit(), get_max_deviation());
+    }
+
+    /**
+     * Converts the internal 64-bit CInt representation to millimeters.
+     */
+    double to_mm(CInt i) const {
+        try_to_use();
+        return i / (std::pow(10.0, n_dec) * PRECISION_MULT) * factor;
+    }
+
 };
 
 /**
- * Represents a vector image, remembering which parts were explicitly cleared
- * as well as which parts are dark.
+ * Gerber interpolation mode.
+ */
+enum class InterpolationMode {
+
+    /**
+     * Mode has not been set yet.
+     */
+    UNDEFINED,
+
+    /**
+     * Linear interpolation (G01).
+     */
+    LINEAR,
+
+    /**
+     * Clockwise circular interpolation (G02).
+     */
+    CIRCULAR_CW,
+
+    /**
+     * Counterclockwise circular interpolation (G03).
+     */
+    CIRCULAR_CCW
+};
+
+/**
+ * Gerber quadrant mode for circular interpolation.
+ */
+enum class QuadrantMode {
+
+    /**
+     * Mode has not been set yet.
+     */
+    UNDEFINED,
+
+    /**
+     * Insane single-quadrant mode (G74).
+     */
+    SINGLE,
+
+    /**
+     * Sort of reasonable multi-quadrant mode (G75).
+     */
+    MULTI
+};
+
+/**
+ * Represents a vector image, tracking which parts were explicitly cleared as
+ * well as which parts were made dark.
  */
 class Plot {
 private:
+
+    /**
+     * Accumulator for incoming paths. It is assumed that all paths have
+     * positive winding and that the intended shape is the union of the paths
+     * (nonzero/positive fill rule) unless otherwise specified. When different
+     * winding modes are needed, commit_paths() must be called priot to adding
+     * the new paths to the accumulator, and then commit_paths() must be called
+     * again with the desired fill rule.
+     */
     mutable CL::Paths accum_paths;
+
+    /**
+     * Whether the paths in the accumulator are to be interpreted as making the
+     * plot dark (true) or clear (false).
+     */
     mutable bool accum_polarity;
+
+    /**
+     * Set of committed paths that make the plot dark. Doesn't intersect clear.
+     */
     mutable CL::Paths dark;
+
+    /**
+     * Set of committed paths that make the plot clear. Doesn't intersect dark.
+     */
     mutable CL::Paths clear;
+
+    /**
+     * Whether dark and clear have been simplified yet.
+     */
     mutable bool simplified = false;
+
+    /**
+     * Commits paths in the accumulator to dark/clear using the given fill type.
+     * No-op if the accumulator is empty.
+     */
     void commit_paths(CL::PolyFillType poly_fill_type = CL::pftNonZero) const {
         if (accum_paths.empty()) return;
         CL::SimplifyPolygons(accum_paths, poly_fill_type);
@@ -136,29 +352,57 @@ private:
         simplified = false;
         accum_paths.clear();
     }
+
+    /**
+     * Simplifies the dark/clear paths. No-op if they have already been
+     * simplified.
+     */
     void simplify() const {
         if (simplified) return;
         CL::SimplifyPolygons(dark, CL::pftNonZero);
         CL::SimplifyPolygons(clear, CL::pftNonZero);
         simplified = true;
     }
+
 public:
+
+    /**
+     * Constructs a plot, optionally with initial conditions for the dark and
+     * clear surfaces.
+     */
     explicit Plot(
         const CL::Paths &dark = {},
         const CL::Paths &clear = {}
-    ) : accum_polarity(true), dark(dark), clear(clear) {
+    ) : accum_polarity(true), dark(dark), clear(clear), simplified(false) {
     }
+
+    /**
+     * Adds paths to the plot with the given polarity. It is assumed that the
+     * paths are all positively wound, and that nonzero/positive winding rules
+     * apply.
+     */
     void draw_paths(const CL::Paths &ps, bool polarity = true) {
         if (ps.empty()) return;
+
+        // If the polarity is not the same as the accumulator, we have to commit
+        // the accumulator first.
         if (polarity != accum_polarity) commit_paths();
         accum_polarity = polarity;
+
+        // Simply add to the accumulator.
         accum_paths.insert(accum_paths.end(), ps.begin(), ps.end());
     }
+
+    /**
+     * Advanced method for adding paths, allowing coordinate transformations and
+     * the fill rule to be specified. The transformation order is translate,
+     * rotate, mirror/scale.
+     */
     void draw_paths(
         const CL::Paths &ps,
         bool polarity,
-        CInt x,
-        CInt y = 0,
+        CInt translate_x,
+        CInt translate_y = 0,
         bool mirror_x = false,
         bool mirror_y = false,
         double rotate = 0.0,
@@ -190,8 +434,8 @@ public:
             for (auto &c : *it) {
                 double cx = c.X * xx + c.Y * yx;
                 double cy = c.X * xy + c.Y * yy;
-                c.X = std::round(cx) + x;
-                c.Y = std::round(cy) + y;
+                c.X = std::round(cx) + translate_x;
+                c.Y = std::round(cy) + translate_y;
             }
         }
 
@@ -205,25 +449,41 @@ public:
         // If we need to apply a special fill rule, commit immediately with said
         // fill rules.
         if (special_fill_type) commit_paths(fill_type);
+
     }
+
+    /**
+     * Add an entire subplot to this plot with the given transformation. The
+     * transformation order is translate, rotate, mirror/scale.
+     */
     void draw_plot(
         const Plot &plt,
         bool polarity = true,
-        CInt x = 0,
-        CInt y = 0,
+        CInt translate_x = 0,
+        CInt translate_y = 0,
         bool mirror_x = false,
         bool mirror_y = false,
         double rotate = 0.0,
         double scale = 1.0
     ) {
-        draw_paths(plt.get_dark(), polarity, x, y, mirror_x, mirror_y, rotate, scale);
-        draw_paths(plt.get_clear(), !polarity, x, y, mirror_x, mirror_y, rotate, scale);
+        draw_paths(plt.get_dark(), polarity, translate_x, translate_y, mirror_x, mirror_y, rotate, scale, true, CL::pftNonZero);
+        draw_paths(plt.get_clear(), !polarity, translate_x, translate_y, mirror_x, mirror_y, rotate, scale, true, CL::pftNonZero);
     }
+
+    /**
+     * Returns the surface that was made dark as a simplified
+     * nonzero/odd-even-filled polygon.
+     */
     const CL::Paths &get_dark() const {
         commit_paths();
         simplify();
         return dark;
     }
+
+    /**
+     * Returns the surface that was explicitly made clear as a simplified
+     * nonzero/odd-even-filled polygon.
+     */
     const CL::Paths &get_clear() const {
         commit_paths();
         simplify();
@@ -231,32 +491,72 @@ public:
     }
 };
 
+/**
+ * Base class for aperture objects.
+ */
 class Aperture {
 protected:
+
+    /**
+     * Plot object representing the shape of the aperture.
+     */
     std::shared_ptr<Plot> plot;
+
 public:
+
+    /**
+     * Returns the plot that represents the shape of the aperture.
+     */
     const Plot &get_plot() const {
         return *plot;
     }
+
+    /**
+     * Returns whether this is a simple circle aperture, suitable for
+     * interpolation. If this is indeed a simple circle and diameter is
+     * non-null, the circle diameter is written to the pointer in addition.
+     */
     virtual bool is_simple_circle(CInt *diameter) const {
         return false;
     }
+
 };
 
+/**
+ * Represents a custom aperture object, either built using an aperture macro or
+ * a block aperture.
+ */
 class CustomAperture : public Aperture {
 public:
+
+    /**
+     * Constructs the custom aperture from the given plot.
+     */
     explicit CustomAperture(const std::shared_ptr<Plot> &data) {
         plot = data;
     }
+
 };
 
+/**
+ * Base class for standard apertures.
+ */
 class StandardAperture : public Aperture {
 protected:
-    CInt hole_diameter = 0;
+
+    /**
+     * Diameter of the optional hole common to all standard apertures.
+     */
+    CInt hole_diameter;
+
+    /**
+     * Returns the path for the hole. That is, a negatively wound circle, or
+     * no path at all if the diameter is zero.
+     */
     CL::Paths get_hole(const CoordFormat &fmt) const {
         CL::Paths ps;
         if (hole_diameter > 0.0) {
-            CL::ClipperOffset co{fmt.miter_limit(), fmt.max_deviation()};
+            auto co = fmt.build_clipper_offset();
             co.AddPath({{0, 0}}, CL::jtRound, CL::etOpenRound);
             co.Execute(ps, hole_diameter * 0.5);
             CL::ReversePaths(ps);
@@ -265,45 +565,91 @@ protected:
     }
 };
 
+/**
+ * Represents a standard circle aperture.
+ */
 class CircleAperture : public StandardAperture {
 private:
-    CInt diameter = 0;
+
+    /**
+     * Diameter of the circle.
+     */
+    CInt diameter;
+
 public:
+
+    /**
+     * Constructs the circle aperture from the given parameters, reported as a
+     * vector of strings. The first string is ignored; it is assumed to be "C"
+     * to select this type of aperture.
+     */
     explicit CircleAperture(const std::vector<std::string> &csep, const CoordFormat &fmt) {
+
+        // Parse the command.
         if (csep.size() < 2 || csep.size() > 3) {
             throw std::runtime_error("invalid circle aperture");
         }
-        diameter = fmt.to_fixed(std::stod(csep.at(1)));
-        hole_diameter = (csep.size() > 2) ? fmt.to_fixed(std::stod(csep.at(2))) : 0;
+        diameter = fmt.parse_float(csep.at(1));
+        hole_diameter = (csep.size() > 2) ? fmt.parse_float(csep.at(2)) : 0;
 
+        // Construct the plot.
         CL::Paths ps;
-        CL::ClipperOffset co{fmt.miter_limit(), fmt.max_deviation()};
+        auto co = fmt.build_clipper_offset();
         co.AddPath({{0, 0}}, CL::jtRound, CL::etOpenRound);
         co.Execute(ps, diameter * 0.5);
         auto hole = get_hole(fmt);
         ps.insert(ps.end(), hole.begin(), hole.end());
         plot = std::make_shared<Plot>(ps);
+
     }
+
+    /**
+     * Returns whether this is a simple circle aperture, suitable for
+     * interpolation. If this is indeed a simple circle and diameter is
+     * non-null, the circle diameter is written to the pointer in addition.
+     */
     bool is_simple_circle(CInt *diameter) const override {
         if (hole_diameter > 0.0) return false;
         if (diameter) *diameter = this->diameter;
         return true;
     }
+
 };
 
+/**
+ * Represents a standard rectangle aperture.
+ */
 class RectangleAperture : public StandardAperture {
 private:
+
+    /**
+     * Horizontal size of the aperture.
+     */
     CInt x_size;
+
+    /**
+     * Vertical size of the aperture.
+     */
     CInt y_size;
+
 public:
+
+    /**
+     * Constructs the rectangle aperture from the given parameters, reported as
+     * a vector of strings. The first string is ignored; it is assumed to be "R"
+     * to select this type of aperture.
+     */
     explicit RectangleAperture(const std::vector<std::string> &csep, const CoordFormat &fmt) {
+
+        // Parse the command.
         if (csep.size() < 3 || csep.size() > 4) {
             throw std::runtime_error("invalid rectangle aperture");
         }
-        x_size = fmt.to_fixed(std::abs(std::stod(csep.at(1))));
-        y_size = fmt.to_fixed(std::abs(std::stod(csep.at(2))));
-        hole_diameter = (csep.size() > 3) ? fmt.to_fixed(std::stod(csep.at(3))) : 0;
+        x_size = std::abs(fmt.parse_float(csep.at(1)));
+        y_size = std::abs(fmt.parse_float(csep.at(2)));
+        hole_diameter = (csep.size() > 3) ? fmt.parse_float(csep.at(3)) : 0;
 
+        // Construct the plot.
         CInt x = x_size / 2;
         CInt y = y_size / 2;
         CL::Paths ps{{
@@ -315,51 +661,104 @@ public:
         auto hole = get_hole(fmt);
         ps.insert(ps.end(), hole.begin(), hole.end());
         plot = std::make_shared<Plot>(ps);
+
     }
 };
 
+/**
+ * Represents a standard obround aperture.
+ */
 class ObroundAperture : public StandardAperture {
 private:
+
+    /**
+     * Horizontal size of the aperture.
+     */
     CInt x_size;
+
+    /**
+     * Vertical size of the aperture.
+     */
     CInt y_size;
+
 public:
+
+    /**
+     * Constructs the obround aperture from the given parameters, reported as
+     * a vector of strings. The first string is ignored; it is assumed to be "O"
+     * to select this type of aperture.
+     */
     explicit ObroundAperture(const std::vector<std::string> &csep, const CoordFormat &fmt) {
+
+        // Parse the command.
         if (csep.size() < 3 || csep.size() > 4) {
             throw std::runtime_error("invalid obround aperture");
         }
-        x_size = fmt.to_fixed(std::abs(std::stod(csep.at(1))));
-        y_size = fmt.to_fixed(std::abs(std::stod(csep.at(2))));
-        hole_diameter = (csep.size() > 3) ? fmt.to_fixed(std::stod(csep.at(3))) : 0;
+        x_size = std::abs(fmt.parse_float(csep.at(1)));
+        y_size = std::abs(fmt.parse_float(csep.at(2)));
+        hole_diameter = (csep.size() > 3) ? fmt.parse_float(csep.at(3)) : 0;
 
+        // Construct the plot.
         CInt x = x_size / 2;
         CInt y = y_size / 2;
         CInt r = std::min(x, y);
         x -= r;
         y -= r;
         CL::Paths ps;
-        CL::ClipperOffset co{fmt.miter_limit(), fmt.max_deviation()};
+        auto co = fmt.build_clipper_offset();
         co.AddPath({{-x, -y}, {x, y}}, CL::jtRound, CL::etOpenRound);
         co.Execute(ps, r);
         auto hole = get_hole(fmt);
         ps.insert(ps.end(), hole.begin(), hole.end());
         plot = std::make_shared<Plot>(ps);
+
     }
 };
 
+/**
+ * Represents a standard regular polygon aperture.
+ */
 class PolygonAperture : public StandardAperture {
 private:
-    CInt diameter = 0;
+
+    /**
+     * Outer diameter of the regular polygon.
+     */
+    CInt diameter;
+
+    /**
+     * Number of vertices. Should be at least 3.
+     */
     size_t n_vertices;
+
+    /**
+     * Rotation of the polygon in radians counterclockwise from the positive X
+     * axis.
+     */
     double rotation;
+
 public:
+
+    /**
+     * Constructs the polygon aperture from the given parameters, reported as
+     * a vector of strings. The first string is ignored; it is assumed to be "P"
+     * to select this type of aperture.
+     */
     explicit PolygonAperture(const std::vector<std::string> &csep, const CoordFormat &fmt) {
+
+        // Parse the command.
         if (csep.size() < 3 || csep.size() > 5) {
             throw std::runtime_error("invalid polygon aperture");
         }
-        diameter = fmt.to_fixed(std::stod(csep.at(1)));
+        diameter = fmt.parse_float(csep.at(1));
         n_vertices = std::stoul(csep.at(2));
+        if (n_vertices < 3) {
+            throw std::runtime_error("invalid polygon aperture");
+        }
         rotation = (csep.size() > 3) ? (std::stod(csep.at(3)) / 180.0 * M_PI) : 0.0;
-        hole_diameter = (csep.size() > 4) ? fmt.to_fixed(std::stod(csep.at(4))) : 0;
+        hole_diameter = (csep.size() > 4) ? fmt.parse_float(csep.at(4)) : 0;
+
+        // Construct the plot.
         CL::Paths ps = {{}};
         for (size_t i = 0; i < n_vertices; i++) {
             double a = ((double)i / (double)n_vertices) * 2.0 * M_PI;
@@ -371,23 +770,30 @@ public:
         auto hole = get_hole(fmt);
         ps.insert(ps.end(), hole.begin(), hole.end());
         plot = std::make_shared<Plot>(ps);
+
     }
 };
+
+namespace aperture_macro {
+
+class ApertureMacroExpression;
+using ApertureMacroExpressionRef = std::shared_ptr<ApertureMacroExpression>;
+using ApertureMacroExpressionRefs = std::list<ApertureMacroExpressionRef>;
 
 class ApertureMacroExpression {
 private:
     static std::string debug(
-        const std::list<std::shared_ptr<ApertureMacroExpression>> &expr,
-        std::list<std::shared_ptr<ApertureMacroExpression>>::iterator expr_begin,
-        std::list<std::shared_ptr<ApertureMacroExpression>>::iterator expr_end
+        const ApertureMacroExpressionRefs &expr,
+        ApertureMacroExpressionRefs::iterator expr_begin,
+        ApertureMacroExpressionRefs::iterator expr_end
     );
-    static std::shared_ptr<ApertureMacroExpression> reduce(
-        std::list<std::shared_ptr<ApertureMacroExpression>> &expr,
-        std::list<std::shared_ptr<ApertureMacroExpression>>::iterator expr_begin,
-        std::list<std::shared_ptr<ApertureMacroExpression>>::iterator expr_end
+    static ApertureMacroExpressionRef reduce(
+        ApertureMacroExpressionRefs &expr,
+        ApertureMacroExpressionRefs::iterator expr_begin,
+        ApertureMacroExpressionRefs::iterator expr_end
     );
 public:
-    static std::shared_ptr<ApertureMacroExpression> parse(std::string expr);
+    static ApertureMacroExpressionRef parse(std::string expr);
     virtual double eval(const std::map<size_t, double> &vars) const = 0;
     virtual char get_token() const { return 0; }
     virtual std::string debug() const = 0;
@@ -432,11 +838,11 @@ public:
 class ApertureMacroUnary : public ApertureMacroExpression {
 private:
     char oper;
-    std::shared_ptr<ApertureMacroExpression> expr;
+    ApertureMacroExpressionRef expr;
 public:
     ApertureMacroUnary(
         char oper,
-        const std::shared_ptr<ApertureMacroExpression> &expr
+        const ApertureMacroExpressionRef &expr
     ) : oper(oper), expr(expr) {
     }
     double eval(const std::map<size_t, double> &vars) const override {
@@ -456,13 +862,13 @@ public:
 class ApertureMacroBinary : public ApertureMacroExpression {
 private:
     char oper;
-    std::shared_ptr<ApertureMacroExpression> lhs;
-    std::shared_ptr<ApertureMacroExpression> rhs;
+    ApertureMacroExpressionRef lhs;
+    ApertureMacroExpressionRef rhs;
 public:
     ApertureMacroBinary(
         char oper,
-        const std::shared_ptr<ApertureMacroExpression> &lhs,
-        const std::shared_ptr<ApertureMacroExpression> &rhs
+        const ApertureMacroExpressionRef &lhs,
+        const ApertureMacroExpressionRef &rhs
     ) : oper(oper), lhs(lhs), rhs(rhs) {
     }
     double eval(const std::map<size_t, double> &vars) const override {
@@ -501,9 +907,9 @@ public:
 };
 
 std::string ApertureMacroExpression::debug(
-    const std::list<std::shared_ptr<ApertureMacroExpression>> &expr,
-    std::list<std::shared_ptr<ApertureMacroExpression>>::iterator expr_begin,
-    std::list<std::shared_ptr<ApertureMacroExpression>>::iterator expr_end
+    const ApertureMacroExpressionRefs &expr,
+    ApertureMacroExpressionRefs::iterator expr_begin,
+    ApertureMacroExpressionRefs::iterator expr_end
 ) {
     std::ostringstream ss;
     ss << "[";
@@ -526,10 +932,10 @@ std::string ApertureMacroExpression::debug(
     return ss.str();
 }
 
-std::shared_ptr<ApertureMacroExpression> ApertureMacroExpression::reduce(
-    std::list<std::shared_ptr<ApertureMacroExpression>> &expr,
-    std::list<std::shared_ptr<ApertureMacroExpression>>::iterator expr_begin,
-    std::list<std::shared_ptr<ApertureMacroExpression>>::iterator expr_end
+ApertureMacroExpressionRef ApertureMacroExpression::reduce(
+    ApertureMacroExpressionRefs &expr,
+    ApertureMacroExpressionRefs::iterator expr_begin,
+    ApertureMacroExpressionRefs::iterator expr_end
 ) {
 
     // At least one expression/token is needed.
@@ -643,13 +1049,13 @@ std::shared_ptr<ApertureMacroExpression> ApertureMacroExpression::reduce(
     return *expr_begin;
 }
 
-std::shared_ptr<ApertureMacroExpression> ApertureMacroExpression::parse(
+ApertureMacroExpressionRef ApertureMacroExpression::parse(
     std::string expr
 ) {
 
     // Tokenize input.
     expr += " ";
-    std::list<std::shared_ptr<ApertureMacroExpression>> tokens;
+    ApertureMacroExpressionRefs tokens;
     std::string cur;
     enum Mode {IDLE, LIT, VAR};
     Mode mode = IDLE;
@@ -687,7 +1093,7 @@ std::shared_ptr<ApertureMacroExpression> ApertureMacroExpression::parse(
     return reduce(tokens, tokens.begin(), tokens.end());
 }
 
-using ApertureMacroCommand = std::vector<std::shared_ptr<ApertureMacroExpression>>;
+using ApertureMacroCommand = std::vector<ApertureMacroExpressionRef>;
 
 class ApertureMacro {
 private:
@@ -753,7 +1159,7 @@ public:
                     double center_y = cmd.at(4)->eval(vars);
                     double rotation = (cmd.size() > 5) ? cmd.at(5)->eval(vars) : 0.0;
                     CL::Paths ps;
-                    CL::ClipperOffset co{fmt.miter_limit(), fmt.max_deviation()};
+                    auto co = fmt.build_clipper_offset();
                     co.AddPath({
                         {
                             fmt.to_fixed(center_x),
@@ -784,7 +1190,7 @@ public:
                     double end_y = cmd.at(6)->eval(vars);
                     double rotation = (cmd.size() > 7) ? cmd.at(7)->eval(vars) : 0.0;
                     CL::Paths ps;
-                    CL::ClipperOffset co{fmt.miter_limit(), fmt.max_deviation()};
+                    auto co = fmt.build_clipper_offset();
                     co.AddPath({
                         {
                             fmt.to_fixed(start_x),
@@ -919,7 +1325,7 @@ public:
                     double rotation = (cmd.size() > 9) ? cmd.at(9)->eval(vars) : 0.0;
                     CL::Paths ps = {};
                     for (size_t i = 0; i < max_rings*2 && diameter > 0.0; i++) {
-                        CL::ClipperOffset co{fmt.miter_limit(), fmt.max_deviation()};
+                        auto co = fmt.build_clipper_offset();
                         co.AddPath({
                             {
                                 fmt.to_fixed(center_x),
@@ -998,7 +1404,7 @@ public:
                     double rotation = (cmd.size() > 6) ? cmd.at(6)->eval(vars) : 0.0;
                     CL::Paths ps = {};
 
-                    CL::ClipperOffset co1{fmt.miter_limit(), fmt.max_deviation()};
+                    auto co1 = fmt.build_clipper_offset();
                     co1.AddPath({
                         {
                             fmt.to_fixed(center_x),
@@ -1009,7 +1415,7 @@ public:
                     co1.Execute(cps, fmt.to_fixed(outer * 0.5));
                     ps.insert(ps.end(), cps.begin(), cps.end());
 
-                    CL::ClipperOffset co2{fmt.miter_limit(), fmt.max_deviation()};
+                    auto co2 = fmt.build_clipper_offset();
                     co2.AddPath({
                         {
                             fmt.to_fixed(center_x),
@@ -1083,26 +1489,51 @@ public:
     }
 };
 
+} // namespace aperture_macro
+
 /**
  * Helper class for circular interpolations.
  */
 class CircularInterpolationHelper {
 private:
+
+    /**
+     * Center point for the arc.
+     */
     double center_x, center_y;
+
+    /**
+     * Initial radius and angle.
+     */
     double r1, r2;
+
+    /**
+     * Final radius and angle.
+     */
     double a1, a2;
+
+    /**
+     * Converts the given coordinate to polar.
+     */
     void to_polar(double x, double y, double &r, double &a) const {
         x -= center_x;
         y -= center_y;
         r = std::hypot(x, y);
         a = std::atan2(y, x);
     }
+
 public:
-    CircularInterpolationHelper(CInt x1, CInt y1, CInt x2, CInt y2, CInt xc, CInt yc, bool ccw, bool multi) {
-        center_x = xc;
-        center_y = yc;
-        to_polar(x1, y1, r1, a1);
-        to_polar(x2, y2, r2, a2);
+
+    /**
+     * Constructs a circular interpolation from one coordinate to another, given
+     * a center coordinate and interpolation mode. Because 6 parameters is
+     * over-constrained for an arc, the radius is interpolated as well.
+     */
+    CircularInterpolationHelper(CPt start, CPt end, CPt center, bool ccw, bool multi) {
+        center_x = center.X;
+        center_y = center.Y;
+        to_polar(start.X, start.Y, r1, a1);
+        to_polar(end.X, end.Y, r2, a2);
         if (multi) {
             if (ccw) {
                 if (a2 <= a1) a2 += 2.0 * M_PI;
@@ -1117,12 +1548,27 @@ public:
             }
         }
     }
+
+    /**
+     * Returns whether this arc qualifies for single-quadrant mode.
+     */
     bool is_single_quadrant() const {
         return std::abs(a1 - a2) <= M_PI_2 + 1e-3;
     }
+
+    /**
+     * Returns a metric for comparing round-off error between different possible
+     * interpolations. Because we're interpolating radius to solve the
+     * over-constrained problem, the error is just the difference between the
+     * two radii.
+     */
     double error() const {
         return std::max(r1, r2);
     }
+
+    /**
+     * Interpolates the arc to a path with a given maximum deviation.
+     */
     CL::Path to_path(double epsilon) const {
         double r = (r1 + r2) * 0.5;
         double x = (r > epsilon) ? (1.0 - epsilon / r) : 0.0;
@@ -1140,6 +1586,7 @@ public:
         }
         return p;
     }
+
 };
 
 /**
@@ -1162,7 +1609,7 @@ private:
      * instantiated, a plot is built on-the-fly to replay the macro instructions
      * with the given parameters.
      */
-    std::map<std::string, std::shared_ptr<ApertureMacro>> aperture_macros;
+    std::map<std::string, std::shared_ptr<aperture_macro::ApertureMacro>> aperture_macros;
 
     /**
      * When non-null, an aperture macro is being constructed. Commands are
@@ -1171,7 +1618,7 @@ private:
      * aperture macro comments. The attribute termination character (%) always
      * resets this to nullptr.
      */
-    std::shared_ptr<ApertureMacro> am_builder;
+    std::shared_ptr<aperture_macro::ApertureMacro> am_builder;
 
     /**
      * Stack of Plot images. The first entry is the actual image; this always
@@ -1308,10 +1755,12 @@ private:
                 // over-constrainedness is solved by linearly interpolating
                 // radius as well as angle.
                 h = std::make_shared<CircularInterpolationHelper>(
-                    pos.X, pos.Y,           // Start coordinate.
-                    dest.X, dest.Y,         // End coordinate.
-                    pos.X + center.X,       // Center point, X.
-                    pos.Y + center.Y,       // Center point, Y.
+                    CPt(pos.X, pos.Y),      // Start coordinate.
+                    CPt(dest.X, dest.Y),    // End coordinate.
+                    CPt(                    // Center point.
+                        pos.X + center.X,
+                        pos.Y + center.Y
+                    ),
                     ccw, true               // Direction and mode.
                 );
 
@@ -1325,11 +1774,13 @@ private:
                 // like a good idea at the time.
                 for (unsigned int k = 0; k < 4; k++) {
                     auto h2 = std::make_shared<CircularInterpolationHelper>(
-                        pos.X, pos.Y,                            // Start coordinate.
-                        dest.X, dest.Y,                          // End coordinate.
-                        pos.X + ((k&1u) ? center.X : -center.X), // Center point, X.
-                        pos.Y + ((k&2u) ? center.Y : -center.Y), // Center point, Y.
-                        ccw, false                               // Direction and mode.
+                        CPt(pos.X, pos.Y),   // Start coordinate.
+                        CPt(dest.X, dest.Y), // End coordinate.
+                        CPt(                 // Center point.
+                            pos.X + ((k&1u) ? center.X : -center.X),
+                            pos.Y + ((k&2u) ? center.Y : -center.Y)
+                        ),
+                        ccw, false          // Direction and mode.
                     );
                     if (h2->is_single_quadrant()) {
                         if (!h || h->error() > h2->error()) {
@@ -1342,7 +1793,7 @@ private:
             if (!h) {
                 throw std::runtime_error("failed to make circular interpolation");
             }
-            path = h->to_path(fmt.max_deviation());
+            path = h->to_path(fmt.get_max_deviation());
 
         }
 
@@ -1378,7 +1829,7 @@ private:
 
         // Use Clipper to add thickness to the path.
         CL::Paths ps;
-        CL::ClipperOffset co{fmt.miter_limit(), fmt.max_deviation()};
+        auto co = fmt.build_clipper_offset();
         co.AddPath(path, CL::jtRound, CL::etOpenRound);
         co.Execute(ps, thickness * 0.5);
 
@@ -1435,16 +1886,14 @@ private:
                 if (cmd.size() != 10 || cmd.substr(2, 3) != "LAX" || cmd.substr(7, 1) != "Y" || cmd.substr(5, 2) != cmd.substr(8, 2)) {
                     throw std::runtime_error("invalid or deprecated and unsupported format specification: " + cmd);
                 }
-                CoordUnit unit = fmt.unit;
-                fmt = CoordFormat(std::stoi(cmd.substr(5, 1)), std::stoi(cmd.substr(6, 1)));
-                fmt.unit = unit;
+                fmt.configure_format(std::stoi(cmd.substr(5, 1)), std::stoi(cmd.substr(6, 1)));
                 return true;
             }
             if (cmd.rfind("MO", 0) == 0) {
                 if (cmd.substr(2, 2) == "IN") {
-                    fmt.unit = CoordUnit(25.4);
+                    fmt.configure_inch();
                 } else if (cmd.substr(2, 2) == "MM") {
-                    fmt.unit = CoordUnit(1.0);
+                    fmt.configure_mm();
                 } else {
                     throw std::runtime_error("invalid unit specification: " + cmd);
                 }
@@ -1500,7 +1949,7 @@ private:
             }
             if (cmd.rfind("AM", 0) == 0) {
                 auto name = cmd.substr(2);
-                am_builder = std::make_shared<ApertureMacro>();
+                am_builder = std::make_shared<aperture_macro::ApertureMacro>();
                 aperture_macros[name] = am_builder;
                 return true;
             }
@@ -1630,7 +2079,7 @@ private:
                     char c = (i < cmd.size()) ? cmd.at(i) : 'Z';
                     if (i == cmd.size() || isalpha(c)) {
                         if (code == 'D') {
-                            d = std::stoull(cmd.substr(start, i - start));
+                            d = std::stoi(cmd.substr(start, i - start));
                         } else if (code) {
                             params[code] = fmt.parse_fixed(cmd.substr(start, i - start));
                         }
@@ -1687,11 +2136,11 @@ private:
 
             // Deprecated format specification; support anyway.
             if (cmd == "G70") {
-                fmt.unit = CoordUnit(25.4);
+                fmt.configure_inch();
                 return true;
             }
             if (cmd == "G71") {
-                fmt.unit = CoordUnit(1.0);
+                fmt.configure_mm();
                 return true;
             }
             if (cmd == "G90") {
@@ -1774,11 +2223,11 @@ public:
             } else {
                 svg << R"(<path fill="white" fill-opacity="0.7" d=")";
             }
-            svg << "M " << fmt.unit.unit_to_mm(fmt.to_unit(p.back().X)) * 25 + 5000
-                << " " << fmt.unit.unit_to_mm(fmt.to_unit(-p.back().Y)) * 25 + 5000 << " ";
+            svg << "M " << fmt.to_mm(p.back().X) * 25 + 5000
+                << " " << fmt.to_mm(-p.back().Y) * 25 + 5000 << " ";
             for (const auto &c : p) {
-                svg << "L " << fmt.unit.unit_to_mm(fmt.to_unit(c.X)) * 25 + 5000
-                    << " " << fmt.unit.unit_to_mm(fmt.to_unit(-c.Y)) * 25 + 5000 << " ";
+                svg << "L " << fmt.to_mm(c.X) * 25 + 5000
+                    << " " << fmt.to_mm(-c.Y) * 25 + 5000 << " ";
             }
         svg << R"("/>)" << std::endl;
         }
