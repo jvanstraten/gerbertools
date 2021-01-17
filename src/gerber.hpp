@@ -268,11 +268,6 @@ public:
      */
     const Paths &get_outline_paths();
 
-    /**
-     * Converts a fixed-point coordinate returned by get_paths() to millimeters.
-     */
-    double to_mm(coord::CInt i) const;
-
 };
 
 } // namespace gerber

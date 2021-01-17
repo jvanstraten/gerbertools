@@ -124,17 +124,26 @@ CInt Format::parse_fixed(const std::string &s) const {
     if (s.find('.') != std::string::npos) {
         return parse_float(s);
     }
-    size_t add_zeros = 0;
+    size_t add_zeros = 10 - n_dec;
+    if (factor == 25.4) {
+        size_t add_zeros = 9 - n_dec;
+    } else if (factor != 1.0) {
+        throw std::runtime_error("unknown conversion factor");
+    }
     if (add_trailing_zeros) {
         size_t digits = s.size();
         if (s.at(0) == '-' || s.at(0) == '+') {
             digits--;
         }
         if (digits < n_int + n_dec) {
-            add_zeros = n_int + n_dec - digits;
+            add_zeros += n_int + n_dec - digits;
         }
     }
-    return std::stoll(s + std::string(add_zeros, '0')) * PRECISION_MULT;
+    CInt val = std::stoll(s + std::string(add_zeros, '0'));
+    if (factor == 25.4) {
+        val *= 254;
+    }
+    return val;
 }
 
 /**
@@ -142,8 +151,7 @@ CInt Format::parse_fixed(const std::string &s) const {
  * CInt representation.
  */
 CInt Format::parse_float(const std::string &s) const {
-    try_to_use();
-    return std::round(std::stod(s) * std::pow(10.0, n_dec) * PRECISION_MULT);
+    return to_fixed(std::stod(s));
 }
 
 /**
@@ -152,23 +160,21 @@ CInt Format::parse_float(const std::string &s) const {
  */
 CInt Format::to_fixed(double d) const {
     try_to_use();
-    return std::round(d * std::pow(10.0, n_dec) * PRECISION_MULT);
+    return std::round(d * factor * 1e10);
 }
 
 /**
  * Returns the maximum deviation in the internal 64-bit CInt representation.
  */
 CInt Format::get_max_deviation() const {
-    try_to_use();
-    return to_fixed(max_deviation / factor);
+    return from_mm(max_deviation);
 }
 
 /**
  * Returns the miter limit in the internal 64-bit CInt representation.
  */
 CInt Format::get_miter_limit() const {
-    try_to_use();
-    return to_fixed(miter_limit / factor);
+    return from_mm(miter_limit);
 }
 
 /**
@@ -179,11 +185,17 @@ ClipperLib::ClipperOffset Format::build_clipper_offset() const {
 }
 
 /**
+ * Converts millimeters to the internal 64-bit CInt representation.
+ */
+CInt Format::from_mm(double i) {
+    return (CInt)std::round(i * 1e10);
+}
+
+/**
  * Converts the internal 64-bit CInt representation to millimeters.
  */
-double Format::to_mm(CInt i) const {
-    try_to_use();
-    return i / (std::pow(10.0, n_dec) * PRECISION_MULT) * factor;
+double Format::to_mm(CInt i) {
+    return i / 1e10;
 }
 
 } // namespace coord

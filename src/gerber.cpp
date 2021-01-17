@@ -796,11 +796,4 @@ const Paths &Gerber::get_outline_paths() {
     return outline;
 }
 
-/**
- * Converts a fixed-point coordinate returned by get_paths() to millimeters.
- */
-double Gerber::to_mm(coord::CInt i) const {
-    return fmt.to_mm(i);
-}
-
 } // namespace gerber

@@ -44,6 +44,11 @@ using CInt = ClipperLib::cInt;
 using CPt = ClipperLib::IntPoint;
 
 /**
+ * 2D bound box.
+ */
+using CRect = ClipperLib::IntRect;
+
+/**
  * Coordinate format handling. This class converts between Gerber fixed-point
  * and floating point format coordinates, an internal high-accuracy integer
  * representation used for polygon operations, and millimeters for the output.
@@ -83,12 +88,6 @@ private:
      * millimeters.
      */
     double factor;
-
-    /**
-     * Multiplier from Gerber fixed format to our high-accuracy 64-bit internal
-     * fixed-point representation.
-     */
-    static const CInt PRECISION_MULT = 0x1000000ll;
 
     /**
      * Whether any coordinates have been converted yet. An exception is thrown
@@ -183,9 +182,14 @@ public:
     ClipperLib::ClipperOffset build_clipper_offset() const;
 
     /**
+     * Converts millimeters to the internal 64-bit CInt representation.
+     */
+    static CInt from_mm(double i);
+
+    /**
      * Converts the internal 64-bit CInt representation to millimeters.
      */
-    double to_mm(CInt i) const;
+    static double to_mm(CInt i);
 
 };
 

@@ -224,9 +224,9 @@ public:
     plot::Paths get_paths(bool plated=true, bool unplated=true) const;
 
     /**
-     * Converts a fixed-point coordinate returned by get_paths() to millimeters.
+     * Returns the center coordinates of all plated holes.
      */
-    double to_mm(coord::CInt i) const;
+    const std::list<coord::CPt> &get_vias() const;
 
 };
 

@@ -457,10 +457,10 @@ plot::Paths NCDrill::get_paths(bool plated, bool unplated) const {
 }
 
 /**
- * Converts a fixed-point coordinate returned by get_paths() to millimeters.
+ * Returns the center coordinates of all plated holes.
  */
-double NCDrill::to_mm(coord::CInt i) const {
-    return fmt.to_mm(i);
+const std::list<coord::CPt> &NCDrill::get_vias() const {
+    return vias;
 }
 
 } // namespace ncdrill
