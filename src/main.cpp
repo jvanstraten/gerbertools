@@ -36,6 +36,7 @@
 
 namespace CL { using namespace ClipperLib; }
 using CInt = CL::cInt;
+using CPt = CL::IntPoint;
 
 const CInt PRECISION_MULT = 0x1000000ll;
 const CInt MITER_LIMIT = 0x10000000ll;
@@ -194,6 +195,13 @@ public:
             }
         }
 
+        // Maintain winding direction in spite of mirroring.
+        if (mirror_x != mirror_y) {
+            for (auto it = accum_paths.end() - ps.size(); it != accum_paths.end(); ++it) {
+                CL::ReversePath(*it);
+            }
+        }
+
         // If we need to apply a special fill rule, commit immediately with said
         // fill rules.
         if (special_fill_type) commit_paths(fill_type);
@@ -227,11 +235,11 @@ class Aperture {
 protected:
     std::shared_ptr<Plot> plot;
 public:
-    virtual CInt line_thickness() const {
-        throw std::runtime_error("invalid aperture for drawing lines");
-    }
     const Plot &get_plot() const {
         return *plot;
+    }
+    virtual bool is_simple_circle(CInt *diameter) const {
+        return false;
     }
 };
 
@@ -276,11 +284,10 @@ public:
         ps.insert(ps.end(), hole.begin(), hole.end());
         plot = std::make_shared<Plot>(ps);
     }
-    CInt line_thickness() const override {
-        if (hole_diameter != 0) {
-            throw std::runtime_error("invalid aperture for drawing lines");
-        }
-        return diameter;
+    bool is_simple_circle(CInt *diameter) const override {
+        if (hole_diameter > 0.0) return false;
+        if (diameter) *diameter = this->diameter;
+        return true;
     }
 };
 
@@ -680,9 +687,11 @@ std::shared_ptr<ApertureMacroExpression> ApertureMacroExpression::parse(
     return reduce(tokens, tokens.begin(), tokens.end());
 }
 
+using ApertureMacroCommand = std::vector<std::shared_ptr<ApertureMacroExpression>>;
+
 class ApertureMacro {
 private:
-    std::vector<std::vector<std::shared_ptr<ApertureMacroExpression>>> cmds;
+    std::vector<ApertureMacroCommand> cmds;
 public:
     void append(const std::string &cmd) {
         if (cmd.empty()) {
@@ -1074,6 +1083,9 @@ public:
     }
 };
 
+/**
+ * Helper class for circular interpolations.
+ */
 class CircularInterpolationHelper {
 private:
     double center_x, center_y;
@@ -1130,6 +1142,10 @@ public:
     }
 };
 
+/**
+ * Main class for parsing Gerber files. The input is parsed during construction
+ * of the object.
+ */
 class GerberFile {
 private:
 
@@ -1190,8 +1206,7 @@ private:
     /**
      * Current coordinate.
      */
-    CInt cur_x; // TODO use point
-    CInt cur_y;
+    CPt pos;
 
     /**
      * Current polarity. True for dark, false for clear. Essentially, when
@@ -1245,29 +1260,131 @@ private:
     CL::Paths outline;
 
     /**
-     * Render the given path to the current plot, as requested via regular D01
-     * commands. Only standard circle apertures are currently supported.
-     */
-    void draw_path(const CL::Path &path, CInt t) { // TODO see if we can just use aperture and error-check here
-        CL::Paths ps;
-        CL::ClipperOffset co{fmt.miter_limit(), fmt.max_deviation()};
-        co.AddPath(path, CL::jtRound, CL::etOpenRound);
-        co.Execute(ps, t / 2);
-        plot_stack.back()->draw_paths(ps, polarity);
-    }
-
-    /**
      * Render the current aperture to the current plot, taking into
      * consideration all configured aperture transformations.
      */
-    void draw_aperture(CInt x, CInt y, const Aperture &a) { // TODO see if we can just use aperture and error-check here
+    void draw_aperture() {
+        if (!aperture) {
+            throw std::runtime_error("flash command before aperture set");
+        }
         plot_stack.back()->draw_plot(
-            a.get_plot(),
+            aperture->get_plot(),
             polarity,
-            x, y,
+            pos.X, pos.Y,
             ap_mirror_x, ap_mirror_y,
             ap_rotate, ap_scale
         );
+    }
+
+    /**
+     * Render an interpolation of the current aperture to the current plot, or
+     * add the interpolation to the current region if we're inside a G36/G37
+     * block.
+     */
+    void interpolate(CPt dest, CPt center) {
+
+        // Interpolate a path from current position (pos) to dest using the
+        // current interpolation mode.
+        CL::Path path;
+        if (imode == InterpolationMode::UNDEFINED) {
+            throw std::runtime_error("interpolate command before mode set");
+        } else if (imode == InterpolationMode::LINEAR) {
+
+            // Handle linear interpolations. This is easy.
+            path = {pos, dest};
+
+        } else {
+
+            // Handle circular interpolation. This is so esoteric we need a
+            // helper class.
+            std::shared_ptr<CircularInterpolationHelper> h;
+            bool ccw = imode == InterpolationMode::CIRCULAR_CCW;
+
+            if (qmode == QuadrantMode::UNDEFINED) {
+                throw std::runtime_error("arc command before quadrant mode set");
+            } else if (qmode == QuadrantMode::MULTI) {
+
+                // Multi-quadrant mode is kind of sane, if over-constrained. The
+                // over-constrainedness is solved by linearly interpolating
+                // radius as well as angle.
+                h = std::make_shared<CircularInterpolationHelper>(
+                    pos.X, pos.Y,           // Start coordinate.
+                    dest.X, dest.Y,         // End coordinate.
+                    pos.X + center.X,       // Center point, X.
+                    pos.Y + center.Y,       // Center point, Y.
+                    ccw, true               // Direction and mode.
+                );
+
+            } else {
+
+                // Single-quadrant mode is esoteric-language-level insane. The
+                // signs of the centerpoint offset are missing, so we have to
+                // evaluate all four candidates, discard those that result in a
+                // 90+ degree angle, and then choose the one with the least
+                // radius difference from start to end. I'm sure this sounded
+                // like a good idea at the time.
+                for (unsigned int k = 0; k < 4; k++) {
+                    auto h2 = std::make_shared<CircularInterpolationHelper>(
+                        pos.X, pos.Y,                            // Start coordinate.
+                        dest.X, dest.Y,                          // End coordinate.
+                        pos.X + ((k&1u) ? center.X : -center.X), // Center point, X.
+                        pos.Y + ((k&2u) ? center.Y : -center.Y), // Center point, Y.
+                        ccw, false                               // Direction and mode.
+                    );
+                    if (h2->is_single_quadrant()) {
+                        if (!h || h->error() > h2->error()) {
+                            h = h2;
+                        }
+                    }
+                }
+
+            }
+            if (!h) {
+                throw std::runtime_error("failed to make circular interpolation");
+            }
+            path = h->to_path(fmt.max_deviation());
+
+        }
+
+        // Push all interpolation paths to outline, so we can reconstruct board
+        // outline and/or milling data from such layers after processing.
+        if (polarity && plot_stack.size() == 1) {
+            outline.push_back(path);
+        }
+
+        // Handle region mode (G36/G37). Instead of drawing lines, we add to the
+        // current region. We skip the start point of each path, as it matches
+        // the end point of the previous path (we could equivalently have
+        // decided to skip the end, and it would have worked the same).
+        if (region_mode) {
+            region_accum.insert(region_accum.end(), std::next(path.begin()), path.end());
+            return;
+        }
+
+        // We only support interpolation for circular apertures; the Gerber
+        // spec is a bit vague about whether different apertures are even legal
+        // (I suspect they used to be, but were deprecated at some point).
+        if (!aperture) {
+            throw std::runtime_error("interpolate command before aperture set");
+        }
+        CInt diameter;
+        if (!aperture->is_simple_circle(&diameter)) {
+            throw std::runtime_error("only simple circle apertures without a hole are supported for interpolation");
+        }
+        double thickness = diameter * ap_scale;
+        if (thickness == 0) {
+            return;
+        }
+
+        // Use Clipper to add thickness to the path.
+        CL::Paths ps;
+        CL::ClipperOffset co{fmt.miter_limit(), fmt.max_deviation()};
+        co.AddPath(path, CL::jtRound, CL::etOpenRound);
+        co.Execute(ps, thickness * 0.5);
+
+        // Add the path to the plot.
+        plot_stack.back()->draw_paths(ps, polarity);
+
     }
 
     /**
@@ -1275,116 +1392,28 @@ private:
      * to the current plot.
      */
     void commit_region() {
+
+        // Check region size.
         if (region_accum.empty()) {
             return;
         }
         if (region_accum.size() < 3) {
-            throw std::runtime_error("region with less than 3 vertices");
+            throw std::runtime_error("encountered region with less than 3 vertices");
         }
-        plot_stack.back()->draw_paths(
-            CL::Paths({region_accum}),
-            polarity,
-            0, 0,
-            false, false,
-            0.0, 1.0,
-            true, ClipperLib::pftNonZero
-        );
+
+        // Gerber file paths can have any winding direction, but in order to
+        // reduce clipper calls we want all paths to have positive winding if
+        // we can help it. So if it's negative, reverse it.
+        if (!CL::Orientation(region_accum)) {
+            CL::ReversePath(region_accum);
+        }
+
+        // Render the region with the current polarity.
+        plot_stack.back()->draw_paths({{region_accum}}, polarity);
+
+        // Clear the accumulator to prepare for the next region.
         region_accum.clear();
-    }
 
-    /**
-     * Processes a D01 path.
-     */
-    void op_d1_path(const CL::Path &path, CInt t) {
-        if (polarity && plot_stack.size() == 1) {
-            outline.push_back(path);
-        }
-        if (region_mode) {
-            region_accum.insert(region_accum.end(), std::next(path.begin()), path.end());
-        } else if (t > 0.0) {
-            draw_path(path, t);
-        }
-    }
-
-    /**
-     * Processes a linear D01 command. Calls op_d1_path() for the actual work.
-     */
-    void op_d1_linear(CInt x, CInt y, CInt t) {
-        op_d1_path({{cur_x, cur_y}, {x, y}}, t);
-        cur_x = x;
-        cur_y = y;
-    }
-
-    /**
-     * Processes a circular D01 command. Calls op_d1_path() for the actual work
-     * after calculating the circular interpolation.
-     */
-    void op_d1_circular(CInt x, CInt y, CInt i, CInt j, CInt t, bool ccw, bool multi) {
-        std::shared_ptr<CircularInterpolationHelper> h;
-        if (multi) {
-
-            // Multi-quadrant mode is kind of sane, if over-constrained. The
-            // over-constrainedness is solved by linearly interpolating radius
-            // as well as angle.
-            h = std::make_shared<CircularInterpolationHelper>(
-                cur_x, cur_y,           // Start coordinate.
-                x, y,                   // End coordinate.
-                cur_x + i, cur_y + j,   // Center point.
-                ccw, true               // Direction and mode.
-            );
-
-        } else {
-
-            // Single-quadrant mode is esoteric-language-level insane. The signs
-            // of the centerpoint offset are missing, so we have to evaluate all
-            // four candidates, discard those that result in a 90+ degree angle,
-            // and then choose the one with the least radius difference from
-            // start to end.
-            for (unsigned int k = 0; k < 4; k++) {
-                auto h2 = std::make_shared<CircularInterpolationHelper>(
-                    cur_x, cur_y,               // Start coordinate.
-                    x, y,                       // End coordinate.
-                    cur_x + ((k&1u) ? i : -i),  // Center point, X.
-                    cur_y + ((k&2u) ? j : -j),  // Center point, Y.
-                    ccw, false                  // Direction and mode.
-                );
-                if (h2->is_single_quadrant()) {
-                    if (!h || h->error() > h2->error()) {
-                        h = h2;
-                    }
-                }
-            }
-
-        }
-        if (!h) {
-            throw std::runtime_error("failed to make circular interpolation");
-        }
-        op_d1_path(h->to_path(fmt.max_deviation()), t);
-        cur_x = x;
-        cur_y = y;
-    }
-
-    /**
-     * Processes a D02 move command.
-     */
-    void op_d2_move(CInt x, CInt y) {
-        if (region_mode) {
-            commit_region();
-        }
-        cur_x = x;
-        cur_y = y;
-    }
-
-    /**
-     * Processes a D03 flash command.
-     */
-    void op_d3_flash(CInt x, CInt y, const Aperture &a) {
-        if (region_mode) {
-            throw std::runtime_error("cannot flash in region mode");
-        }
-        draw_aperture(x, y, a);
-        cur_x = x;
-        cur_y = y;
     }
 
     /**
@@ -1589,8 +1618,8 @@ private:
             // Move/draw commands.
             if (cmd.at(0) == 'X' || cmd.at(0) == 'Y' || cmd.at(0) == 'I' || cmd.at(0) == 'D') {
                 std::map<char, CInt> params = {
-                    {'X', cur_x},
-                    {'Y', cur_y},
+                    {'X', pos.X},
+                    {'Y', pos.Y},
                     {'I', 0},
                     {'J', 0},
                 };
@@ -1611,47 +1640,27 @@ private:
                 }
                 switch (d) {
                     case 1: // interpolate
-                        if (!aperture && !region_mode) {
-                            throw std::runtime_error("interpolate command before aperture set");
-                        }
-                        switch (imode) {
-                            case InterpolationMode::UNDEFINED:
-                                throw std::runtime_error("interpolate command before mode set");
-                            case InterpolationMode::LINEAR:
-                                op_d1_linear(
-                                    params.at('X'), params.at('Y'),
-                                    region_mode ? 0.0 : aperture->line_thickness() * ap_scale
-                                );
-                                break;
-                            case InterpolationMode::CIRCULAR_CW:
-                            case InterpolationMode::CIRCULAR_CCW:
-                                if (!params.count('I') || !params.count('J')) {
-                                    throw std::runtime_error("arc is missing center point");
-                                }
-                                if (qmode == QuadrantMode::UNDEFINED) {
-                                    throw std::runtime_error("arc command before quadrant mode set");
-                                }
-                                op_d1_circular(
-                                    params.at('X'), params.at('Y'),
-                                    params.at('I'), params.at('J'),
-                                    region_mode ? 0.0 : aperture->line_thickness() * ap_scale,
-                                    imode == InterpolationMode::CIRCULAR_CCW,
-                                    qmode == QuadrantMode::MULTI
-                                );
-                                break;
-                        }
+                        interpolate(
+                            {params.at('X'), params.at('Y')},
+                            {params.at('I'), params.at('J')}
+                        );
+                        pos.X = params.at('X');
+                        pos.Y = params.at('Y');
                         break;
                     case 2: // move
-                        op_d2_move(params.at('X'), params.at('Y'));
+                        if (region_mode) {
+                            commit_region();
+                        }
+                        pos.X = params.at('X');
+                        pos.Y = params.at('Y');
                         break;
                     case 3: // flash
-                        if (!aperture) {
-                            throw std::runtime_error("interpolate command before aperture set");
+                        if (region_mode) {
+                            throw std::runtime_error("cannot flash in region mode");
                         }
-                        op_d3_flash(
-                            params.at('X'), params.at('Y'),
-                            *aperture
-                        );
+                        pos.X = params.at('X');
+                        pos.Y = params.at('Y');
+                        draw_aperture();
                         break;
                     default:
                         throw std::runtime_error("invalid draw/move command: " + std::to_string(d));
@@ -1720,8 +1729,7 @@ public:
         f.exceptions(std::ifstream::badbit);
         imode = InterpolationMode::UNDEFINED;
         qmode = QuadrantMode::UNDEFINED;
-        cur_x = 0;
-        cur_y = 0;
+        pos = {0, 0};
         polarity = true;
         ap_mirror_x = false;
         ap_mirror_y = false;
