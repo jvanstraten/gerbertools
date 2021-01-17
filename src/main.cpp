@@ -776,53 +776,112 @@ public:
 
 namespace aperture_macro {
 
-class ApertureMacroExpression;
-using ApertureMacroExpressionRef = std::shared_ptr<ApertureMacroExpression>;
-using ApertureMacroExpressionRefs = std::list<ApertureMacroExpressionRef>;
+class Expression;
+using ExpressionRef = std::shared_ptr<Expression>;
+using ExpressionRefs = std::list<ExpressionRef>;
+using Variables = std::map<size_t, double>;
 
-class ApertureMacroExpression {
+/**
+ * Aperture macro expression tree. Can also take the shape of a single token
+ * while parsing.
+ */
+class Expression {
 private:
     static std::string debug(
-        const ApertureMacroExpressionRefs &expr,
-        ApertureMacroExpressionRefs::iterator expr_begin,
-        ApertureMacroExpressionRefs::iterator expr_end
+        const ExpressionRefs &expr,
+        ExpressionRefs::iterator expr_begin,
+        ExpressionRefs::iterator expr_end
     );
-    static ApertureMacroExpressionRef reduce(
-        ApertureMacroExpressionRefs &expr,
-        ApertureMacroExpressionRefs::iterator expr_begin,
-        ApertureMacroExpressionRefs::iterator expr_end
+    static ExpressionRef reduce(
+        ExpressionRefs &expr,
+        ExpressionRefs::iterator expr_begin,
+        ExpressionRefs::iterator expr_end
     );
 public:
-    static ApertureMacroExpressionRef parse(std::string expr);
-    virtual double eval(const std::map<size_t, double> &vars) const = 0;
+    static ExpressionRef parse(std::string expr);
+    
+    /**
+     * Evaluate this expression with the given set of variables.
+     */
+    virtual double eval(const Variables &vars) const = 0;
+    
+    /**
+     * If this is a character token, return the character it represents.
+     * Otherwise retun '\0'.
+     */
     virtual char get_token() const { return 0; }
+    
+    /**
+     * Returns a debug representation of this expression node. 
+     */
     virtual std::string debug() const = 0;
 };
 
-class ApertureMacroLiteral : public ApertureMacroExpression {
+/**
+ * Represents a literal.
+ */
+class LiteralExpression : public Expression {
 private:
+
+    /**
+     * Value of the literal.
+     */
     double value;
+
 public:
-    explicit ApertureMacroLiteral(double value) : value(value) {
+
+    /**
+     * Constructs a literal node with the given value.
+     */
+    explicit LiteralExpression(double value) : value(value) {
     }
-    double eval(const std::map<size_t, double> &vars) const override {
+
+    /**
+     * Evaluate this expression with the given set of variables.
+     */
+    double eval(const Variables &vars) const override {
         return value;
     }
+
+    /**
+     * Returns a debug representation of this expression node.
+     */
     std::string debug() const override {
         return "<" + std::to_string(value) + ">";
     }
+
 };
 
-class ApertureMacroVariable : public ApertureMacroExpression {
+/**
+ * Represents a variable reference.
+ */
+class VariableExpression : public Expression {
 private:
+
+    /**
+     * Index of the variable.
+     */
     size_t index;
+
 public:
-    explicit ApertureMacroVariable(size_t index) : index(index) {
+
+    /**
+     * Constructs a variable reference node with the given variable index.
+     */
+    explicit VariableExpression(size_t index) : index(index) {
     }
+
+    /**
+     * Constructs a variable node for the given variable index.
+     */
     size_t get_index() const {
         return index;
     }
-    double eval(const std::map<size_t, double> &vars) const override {
+
+    /**
+     * Evaluate this expression with the given set of variables.
+     */
+    double eval(const Variables &vars) const override {
         auto it = vars.find(index);
         if (it != vars.end()) {
             return it->second;
@@ -830,22 +889,48 @@ public:
             return 0.0;
         }
     }
+
+    /**
+     * Returns a debug representation of this expression node.
+     */
     std::string debug() const override {
         return "<$" + std::to_string(index) + ">";
     }
+
 };
 
-class ApertureMacroUnary : public ApertureMacroExpression {
+/**
+ * Represents a unary operation, either -x or +x.
+ */
+class UnaryExpression : public Expression {
 private:
+
+    /**
+     * The operation, either '-' or '+'.
+     */
     char oper;
-    ApertureMacroExpressionRef expr;
+
+    /**
+     * The operand expression.
+     */
+    ExpressionRef expr;
+
 public:
-    ApertureMacroUnary(
+
+    /**
+     * Constructs a unary expression node from the given operand character
+     * (either '+' or '-') and operand expression.
+     */
+    UnaryExpression(
         char oper,
-        const ApertureMacroExpressionRef &expr
+        const ExpressionRef &expr
     ) : oper(oper), expr(expr) {
     }
-    double eval(const std::map<size_t, double> &vars) const override {
+
+    /**
+     * Evaluate this expression with the given set of variables.
+     */
+    double eval(const Variables &vars) const override {
         if (oper == '+') {
             return expr->eval(vars);
         } else if (oper == '-') {
@@ -854,24 +939,54 @@ public:
             throw std::runtime_error("invalid unary operator in aperture macro");
         }
     }
+
+    /**
+     * Returns a debug representation of this expression node.
+     */
     std::string debug() const override {
         return "<" + std::string(1, oper) + expr->debug() + ">";
     }
+
 };
 
-class ApertureMacroBinary : public ApertureMacroExpression {
+/**
+ * Represents a unary operation, either x+y, x-y, x*y, or x/y.
+ */
+class BinaryExpression : public Expression {
 private:
+
+    /**
+     * The operation, either '-' or '+'.
+     */
     char oper;
-    ApertureMacroExpressionRef lhs;
-    ApertureMacroExpressionRef rhs;
+
+    /**
+     * Left-hand-side operand expression.
+     */
+    ExpressionRef lhs;
+
+    /**
+     * Right-hand-side operand expression.
+     */
+    ExpressionRef rhs;
+
 public:
-    ApertureMacroBinary(
+
+    /**
+     * Constructs a binary expression node from the given operand character
+     * (either '+', '-', 'x', or '/') and operand expressions.
+     */
+    BinaryExpression(
         char oper,
-        const ApertureMacroExpressionRef &lhs,
-        const ApertureMacroExpressionRef &rhs
+        const ExpressionRef &lhs,
+        const ExpressionRef &rhs
     ) : oper(oper), lhs(lhs), rhs(rhs) {
     }
-    double eval(const std::map<size_t, double> &vars) const override {
+
+    /**
+     * Evaluate this expression with the given set of variables.
+     */
+    double eval(const Variables &vars) const override {
         if (oper == '+') {
             return lhs->eval(vars) + rhs->eval(vars);
         } else if (oper == '-') {
@@ -884,32 +999,65 @@ public:
             throw std::runtime_error("invalid binary operator in aperture macro");
         }
     }
+
+    /**
+     * Returns a debug representation of this expression node.
+     */
     std::string debug() const override {
         return "<" + lhs->debug() + std::string(1, oper) + rhs->debug() + ">";
     }
+
 };
 
-class ApertureMacroToken : public ApertureMacroExpression {
+/**
+ * Represents an unparsed token.
+ */
+class Token : public Expression {
 private:
+
+    /**
+     * The only tokens we need to represent are single characters, so a char is
+     * sufficient for identification. These tokens are '(', ')', '+', '-', 'x',
+     * and '/'.
+     */
     char token;
+
 public:
-    ApertureMacroToken(char token) : token(token) {
+
+    /**
+     * Constructs a token character. The character must be '(', ')', '+', '-',
+     * 'x', or '/'.
+     */
+    Token(char token) : token(token) {
     }
-    double eval(const std::map<size_t, double> &vars) const override {
+
+    /**
+     * Evaluate this expression with the given set of variables.
+     */
+    double eval(const Variables &vars) const override {
         throw std::runtime_error("cannot evaluate token");
     }
     char get_token() const override {
         return token;
     }
+
+    /**
+     * Returns a debug representation of this expression node.
+     */
     std::string debug() const override {
         return "<" + std::string(1, token) + ">";
     }
+
 };
 
-std::string ApertureMacroExpression::debug(
-    const ApertureMacroExpressionRefs &expr,
-    ApertureMacroExpressionRefs::iterator expr_begin,
-    ApertureMacroExpressionRefs::iterator expr_end
+/**
+ * Constructs a string representation of the given expression/token list and
+ * context.
+ */
+std::string Expression::debug(
+    const ExpressionRefs &expr,
+    ExpressionRefs::iterator expr_begin,
+    ExpressionRefs::iterator expr_end
 ) {
     std::ostringstream ss;
     ss << "[";
@@ -932,10 +1080,15 @@ std::string ApertureMacroExpression::debug(
     return ss.str();
 }
 
-ApertureMacroExpressionRef ApertureMacroExpression::reduce(
-    ApertureMacroExpressionRefs &expr,
-    ApertureMacroExpressionRefs::iterator expr_begin,
-    ApertureMacroExpressionRefs::iterator expr_end
+/**
+ * Reduces the given expression/token list to a single expression tree by
+ * applying reduction rules. Yes, it might've been better to just include a
+ * proper parser lib and use that. This was easier (by some metrics).
+ */
+ExpressionRef Expression::reduce(
+    ExpressionRefs &expr,
+    ExpressionRefs::iterator expr_begin,
+    ExpressionRefs::iterator expr_end
 ) {
 
     // At least one expression/token is needed.
@@ -995,7 +1148,7 @@ ApertureMacroExpressionRef ApertureMacroExpression::reduce(
                 if (t != '-' && t != '+') {
                     throw std::runtime_error("invalid unary operator in aperture macro expression");
                 }
-                *un = std::make_shared<ApertureMacroUnary>(t, *end);
+                *un = std::make_shared<UnaryExpression>(t, *end);
                 expr.erase(end--);
             }
 
@@ -1032,7 +1185,7 @@ ApertureMacroExpressionRef ApertureMacroExpression::reduce(
                 }
                 auto lhs = std::prev(it);
                 auto rhs = std::next(it);
-                *lhs = std::make_shared<ApertureMacroBinary>(t, *lhs, *rhs);
+                *lhs = std::make_shared<BinaryExpression>(t, *lhs, *rhs);
                 expr.erase(it);
                 expr.erase(rhs);
                 it = lhs;
@@ -1047,15 +1200,17 @@ ApertureMacroExpressionRef ApertureMacroExpression::reduce(
             + debug(expr, expr_begin, expr_end));
     }
     return *expr_begin;
+
 }
 
-ApertureMacroExpressionRef ApertureMacroExpression::parse(
-    std::string expr
-) {
+/**
+ * Parse the given expression.
+ */
+ExpressionRef Expression::parse(std::string expr) {
 
     // Tokenize input.
     expr += " ";
-    ApertureMacroExpressionRefs tokens;
+    ExpressionRefs tokens;
     std::string cur;
     enum Mode {IDLE, LIT, VAR};
     Mode mode = IDLE;
@@ -1065,7 +1220,7 @@ ApertureMacroExpressionRef ApertureMacroExpression::parse(
                 cur += c;
                 continue;
             } else {
-                tokens.push_back(std::make_shared<ApertureMacroLiteral>(std::stod(cur)));
+                tokens.push_back(std::make_shared<LiteralExpression>(std::stod(cur)));
                 cur.resize(0);
                 mode = IDLE;
             }
@@ -1074,7 +1229,7 @@ ApertureMacroExpressionRef ApertureMacroExpression::parse(
                 cur += c;
                 continue;
             } else {
-                tokens.push_back(std::make_shared<ApertureMacroVariable>(std::stoul(cur)));
+                tokens.push_back(std::make_shared<VariableExpression>(std::stoul(cur)));
                 cur.resize(0);
                 mode = IDLE;
             }
@@ -1085,7 +1240,7 @@ ApertureMacroExpressionRef ApertureMacroExpression::parse(
         } else if (c == '$') {
             mode = VAR;
         } else if (c == '-' || c == '+' || c == 'x' || c == '/' || c == '(' || c == ')') {
-            tokens.push_back(std::make_shared<ApertureMacroToken>(c));
+            tokens.push_back(std::make_shared<Token>(c));
         }
     }
 
@@ -1093,12 +1248,27 @@ ApertureMacroExpressionRef ApertureMacroExpression::parse(
     return reduce(tokens, tokens.begin(), tokens.end());
 }
 
-using ApertureMacroCommand = std::vector<ApertureMacroExpressionRef>;
+/**
+ * Represents an aperture macro command... poorly.
+ */
+using ApertureMacroCommand = std::vector<ExpressionRef>;
 
+/**
+ * Represents an aperture macro (before being instantiated into an aperture).
+ */
 class ApertureMacro {
 private:
-    std::vector<ApertureMacroCommand> cmds;
+
+    /**
+     * The commands that make up the macro.
+     */
+    std::list<ApertureMacroCommand> cmds;
+
 public:
+
+    /**
+     * Parses and appends an aperture macro command.
+     */
     void append(const std::string &cmd) {
         if (cmd.empty()) {
             throw std::runtime_error("empty aperture macro command");
@@ -1111,15 +1281,15 @@ public:
                 throw std::runtime_error("invalid aperture macro assignment command");
             }
             cmds.push_back({
-                ApertureMacroExpression::parse(cmd.substr(0, pos)),
-                ApertureMacroExpression::parse(cmd.substr(pos + 1))
+               Expression::parse(cmd.substr(0, pos)),
+               Expression::parse(cmd.substr(pos + 1))
             });
         } else {
             size_t pos = 0;
             cmds.push_back({});
             while (true) {
                 auto pos2 = cmd.find(',', pos);
-                cmds.back().push_back(ApertureMacroExpression::parse(cmd.substr(pos, pos2 - pos)));
+                cmds.back().push_back(Expression::parse(cmd.substr(pos, pos2 - pos)));
                 if (pos2 == std::string::npos) {
                     break;
                 }
@@ -1127,8 +1297,14 @@ public:
             }
         }
     }
+
+    /**
+     * Executes the macro to construct an aperture using the given parameters,
+     * reported as a vector of strings. The first string is ignored; it is
+     * assumed to be the name of the aperture macro.
+     */
     std::shared_ptr<Aperture> build(const std::vector<std::string> &csep, const CoordFormat &fmt) {
-        std::map<size_t, double> vars;
+        Variables vars;
         for (size_t i = 1; i < csep.size(); i++) {
             vars[i] = std::stod(csep.at(i));
         }
@@ -1137,7 +1313,7 @@ public:
 
             // Handle variable assignment commands.
             if (cmd.size() == 2) {
-                auto v = std::dynamic_pointer_cast<ApertureMacroVariable>(cmd.at(0));
+                auto v = std::dynamic_pointer_cast<VariableExpression>(cmd.at(0));
                 if (v) {
                     vars[v->get_index()] = cmd.at(1)->eval(vars);
                     continue;
@@ -1145,6 +1321,10 @@ public:
             }
 
             // Handle draw commands.
+            // TODO: this is terrible design. Commands should be classes that
+            //  check the command syntax upon construction, and have a
+            //  polymorphic execute function. The actual rendering code is also
+            //  messy, but whatever, it works.
             auto code = (size_t)std::round(cmd.at(0)->eval(vars));
             switch (code) {
                 case 1: {
