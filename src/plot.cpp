@@ -197,9 +197,13 @@ const Paths &Plot::get_clear() const {
 /**
  * Renders an open path to a polygon by applying thickness.
  */
-Paths render_path(const Path &path, double thickness, const coord::Format &fmt) {
+Paths render_path(const Path &path, double thickness, const coord::Format &fmt, bool square) {
     auto co = fmt.build_clipper_offset();
-    co.AddPath(path, ClipperLib::jtRound, ClipperLib::etOpenRound);
+    co.AddPath(
+        path,
+        square ? ClipperLib::jtMiter : ClipperLib::jtRound,
+        square ? ClipperLib::etOpenButt : ClipperLib::etOpenRound
+    );
     Paths paths;
     co.Execute(paths, thickness * 0.5);
     return paths;

@@ -465,7 +465,7 @@ aperture::Ref ApertureMacro::build(const std::vector<std::string> &csep, const c
                         fmt.to_fixed(center_x),
                         fmt.to_fixed(center_y)
                     }
-                }, diameter, fmt);
+                }, fmt.to_fixed(diameter), fmt);
                 plot.draw_paths(
                     paths, exposure,
                     0, 0,
@@ -496,7 +496,7 @@ aperture::Ref ApertureMacro::build(const std::vector<std::string> &csep, const c
                         fmt.to_fixed(end_x),
                         fmt.to_fixed(end_y)
                     }
-                }, width, fmt);
+                }, fmt.to_fixed(width), fmt, true);
                 plot.draw_paths(
                     paths, exposure,
                     0, 0,
@@ -626,7 +626,7 @@ aperture::Ref ApertureMacro::build(const std::vector<std::string> &csep, const c
                             fmt.to_fixed(center_x),
                             fmt.to_fixed(center_y)
                         }
-                    }, diameter, fmt);
+                    }, fmt.to_fixed(diameter), fmt);
                     if (i & 1) {
                         ClipperLib::ReversePaths(circle_paths);
                         diameter -= gap * 2.0;
@@ -701,14 +701,14 @@ aperture::Ref ApertureMacro::build(const std::vector<std::string> &csep, const c
                         fmt.to_fixed(center_x),
                         fmt.to_fixed(center_y)
                     }
-                }, outer, fmt);
+                }, fmt.to_fixed(outer), fmt);
 
                 auto inner_paths = plot::render_path({
                     {
                         fmt.to_fixed(center_x),
                         fmt.to_fixed(center_y)
                     }
-                }, inner, fmt);
+                }, fmt.to_fixed(inner), fmt);
                 ClipperLib::ReversePaths(inner_paths);
                 paths.insert(paths.end(), inner_paths.begin(), inner_paths.end());
 

@@ -170,6 +170,6 @@ using Ref = std::shared_ptr<Plot>;
 /**
  * Renders an open path to a polygon by applying thickness.
  */
-Paths render_path(const Path &path, double thickness, const coord::Format &fmt);
+Paths render_path(const Path &path, double thickness, const coord::Format &fmt, bool square=false);
 
 } // namespace plot

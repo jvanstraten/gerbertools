@@ -119,6 +119,7 @@ private:
     std::ofstream f;
     coord::CRect bounds;
     double scale;
+    double width, height;
 public:
     Svg(
         const std::string &fname,
@@ -128,9 +129,10 @@ public:
         if (!f.is_open()) {
             throw std::runtime_error("failed to open " + fname + " for writing");
         }
-        f << "<svg width=\"" << coord::Format::to_mm(bounds.right - bounds.left) * scale;
-        f << "\" height=\"" << coord::Format::to_mm(bounds.top - bounds.bottom) * scale;
-        f << "\" xmlns=\"http://www.w3.org/2000/svg\">)\n)";
+        width = coord::Format::to_mm(2 * (bounds.right - bounds.left)) * scale;
+        height = coord::Format::to_mm(bounds.top - bounds.bottom) * scale;
+        f << "<svg width=\"" << width << "\" height=\"" << height << "\" ";
+        f << "xmlns=\"http://www.w3.org/2000/svg\">)\n)";
         f << R"(<defs><filter id="f1"><feGaussianBlur in="SourceGraphic" stdDeviation=")" << scale << R"(" /></filter></defs>)" << "\n";
     }
 
@@ -146,7 +148,7 @@ public:
         f << "d=\"";
         for (const auto &p : paths) {
             if (flipped) {
-                f << "M " << coord::Format::to_mm(bounds.right - p.back().X) * scale;
+                f << "M " << width - coord::Format::to_mm(p.back().X - bounds.left) * scale;
             } else {
                 f << "M " << coord::Format::to_mm(p.back().X - bounds.left) * scale;
             }
@@ -154,7 +156,7 @@ public:
             f << " ";
             for (const auto &c : p) {
                 if (flipped) {
-                    f << "L " << coord::Format::to_mm(bounds.right - c.X) * scale;
+                    f << "L " << width - coord::Format::to_mm(c.X - bounds.left) * scale;
                 } else {
                     f << "L " << coord::Format::to_mm(c.X - bounds.left) * scale;
                 }
@@ -516,7 +518,7 @@ public:
         svg.draw(board_shape, flipped, COLOR_SUBSTRATE);
     }
 
-    void write_svg(const std::string &fname, bool flipped=false, double scale=1.0) {
+    void write_svg(const std::string &fname, double scale=1.0) {
         coord::CRect bounds;
         bounds.left = bounds.bottom = INT64_MAX;
         bounds.right = bounds.top = INT64_MIN;
@@ -529,19 +531,17 @@ public:
             }
         }
         bounds.left -= coord::Format::from_mm(10.0);
-        bounds.right += coord::Format::from_mm(10.0);
+        bounds.right += coord::Format::from_mm(5.0);
         bounds.bottom -= coord::Format::from_mm(10.0);
         bounds.top += coord::Format::from_mm(10.0);
         Svg svg{fname, bounds, scale};
-        svg.draw(board_shape, flipped, {0.0f, 0.0f, 0.0f, 0.2f}, true);
-        if (!flipped) {
-            for (auto it = layers.begin(); it != layers.end(); ++it) {
-                render_layer(svg, *it, flipped);
-            }
-        } else {
-            for (auto it = layers.rbegin(); it != layers.rend(); ++it) {
-                render_layer(svg, *it, flipped);
-            }
+        svg.draw(board_shape, false, {0.0f, 0.0f, 0.0f, 0.2f}, true);
+        for (auto it = layers.begin(); it != layers.end(); ++it) {
+            render_layer(svg, *it, false);
+        }
+        svg.draw(board_shape, true, {0.0f, 0.0f, 0.0f, 0.2f}, true);
+        for (auto it = layers.rbegin(); it != layers.rend(); ++it) {
+            render_layer(svg, *it, true);
         }
     }
 
@@ -550,7 +550,7 @@ public:
 int main(int argc, char *argv[]) {
 
     CircuitBoard pcb(
-        "/mnt/e/git/DARE subrepos/projects/stratos2plus/orders/2015-06-16/fts/fts", ".GKO", ".TXT"
+        "/mnt/e/git/DARE subrepos/projects/stratos2plus/orders/2015-06-16/ecu-bottom/ecu-bottom", ".GKO", ".TXT"
         //"O100030117 10by10 Green 1.6mm HASL 10pcs/mcu", ".GKO", ".TXT"
         //"pcb", ".GM3", ""
     );
@@ -559,7 +559,7 @@ int main(int argc, char *argv[]) {
     pcb.add_substrate_layer();
     pcb.add_copper_layer(".GTL");
     pcb.add_mask_layer(".GTS", ".GTO");
-    pcb.write_svg("kek.svg", true, 20);
+    pcb.write_svg("kek.svg", 20);
 
     /*std::ifstream f("/mnt/e/git/DARE subrepos/projects/stratos2plus/orders/2015-06-16/fts/fts.GBL");
     //std::ifstream f("O100030117 10by10 Green 1.6mm HASL 10pcs/mcu.GTL");
