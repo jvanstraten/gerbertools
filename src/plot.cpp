@@ -164,15 +164,13 @@ void Plot::draw_plot(
         plt.get_dark(), polarity,
         translate_x, translate_y,
         mirror_x, mirror_y,
-        rotate, scale,
-        true, FillRule::pftNonZero
+        rotate, scale
     );
     draw_paths(
         plt.get_clear(), !polarity,
         translate_x, translate_y,
         mirror_x, mirror_y,
-        rotate, scale,
-        true, FillRule::pftNonZero
+        rotate, scale
     );
 }
 

@@ -59,11 +59,11 @@ private:
 
     /**
      * Accumulator for incoming paths. It is assumed that all paths have
-     * positive winding and that the intended shape is the union of the paths
-     * (nonzero/positive fill rule) unless otherwise specified. When different
-     * winding modes are needed, commit_paths() must be called priot to adding
-     * the new paths to the accumulator, and then commit_paths() must be called
-     * again with the desired fill rule.
+     * positive winding or cancel out previously drawn paths and that the
+     * nonzero/positive fill rule shall be applicable unless otherwise
+     * specified. When different fill rules are needed, commit_paths() must be
+     * called priot to adding the new paths to the accumulator, and then
+     * commit_paths() must be called again with the desired fill rule.
      */
     mutable Paths accum_paths;
 

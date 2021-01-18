@@ -126,7 +126,7 @@ CInt Format::parse_fixed(const std::string &s) const {
     }
     size_t add_zeros = 10 - n_dec;
     if (factor == 25.4) {
-        size_t add_zeros = 9 - n_dec;
+        add_zeros = 9 - n_dec;
     } else if (factor != 1.0) {
         throw std::runtime_error("unknown conversion factor");
     }

@@ -94,6 +94,26 @@ struct Color {
     float a;
 };
 
+static const Color COLOR_TIN = {0.7f, 0.7f, 0.7f, 1.0f};
+
+/*
+static const Color COLOR_COPPER = {0.8f, 0.59f, 0.3f, 1.0f};
+static const Color COLOR_SUBSTRATE = {0.8f, 0.7f, 0.5f, 0.95f};
+
+// Green soldermask.
+static const Color COLOR_MASK = {0.1f, 0.6f, 0.3f, 0.6f};
+static const Color COLOR_SILK = {0.9f, 0.9f, 0.9f, 0.9f};
+*/
+
+// White soldermask.
+//static const Color COLOR_MASK = {0.85f, 0.9f, 0.95f, 0.8f};
+//static const Color COLOR_SILK = {0.1f, 0.1f, 0.1f, 0.9f};
+
+static const Color COLOR_COPPER    = {0.8f, 0.7f, 0.3f, 1.0f};
+static const Color COLOR_SUBSTRATE = {0.6f, 0.5f, 0.3f, 0.95f};
+static const Color COLOR_MASK      = {0.1f, 0.6f, 0.3f, 0.6f};
+static const Color COLOR_SILK      = {0.9f, 0.9f, 0.9f, 0.9f};
+
 class Svg {
 private:
     std::ofstream f;
@@ -252,7 +272,7 @@ public:
      * Renders the layer to an SVG.
      */
     void render(Svg &svg, bool flipped) const override {
-        svg.draw(copper, flipped, {0.8f, 0.6f, 0.3f, 1.0f});
+        svg.draw(copper, flipped, COLOR_COPPER);
     }
 
 };
@@ -299,11 +319,11 @@ public:
      */
     void render(Svg &svg, bool flipped) const override {
         if (bottom == flipped) {
-            svg.draw(silk, flipped, {0.9f, 0.9f, 0.9f, 0.9f});
-            svg.draw(mask, flipped, {0.1f, 0.7f, 0.2f, 0.6f});
+            svg.draw(silk, flipped, COLOR_SILK);
+            svg.draw(mask, flipped, COLOR_MASK);
         } else {
-            svg.draw(mask, flipped, {0.1f, 0.7f, 0.2f, 0.6f});
-            svg.draw(silk, flipped, {0.9f, 0.9f, 0.9f, 0.9f});
+            svg.draw(mask, flipped, COLOR_MASK);
+            svg.draw(silk, flipped, COLOR_SILK);
         }
     }
 
@@ -493,7 +513,7 @@ public:
             layer->render(svg, flipped);
             return;
         }
-        svg.draw(board_shape, flipped, {0.8f, 0.7f, 0.5f, 0.95f});
+        svg.draw(board_shape, flipped, COLOR_SUBSTRATE);
     }
 
     void write_svg(const std::string &fname, bool flipped=false, double scale=1.0) {
@@ -530,9 +550,9 @@ public:
 int main(int argc, char *argv[]) {
 
     CircuitBoard pcb(
-        //"/mnt/e/git/DARE subrepos/projects/stratos2plus/orders/2015-06-16/fts/fts", ".GKO", ".TXT"
+        "/mnt/e/git/DARE subrepos/projects/stratos2plus/orders/2015-06-16/fts/fts", ".GKO", ".TXT"
         //"O100030117 10by10 Green 1.6mm HASL 10pcs/mcu", ".GKO", ".TXT"
-        "pcb", ".GM3", ""
+        //"pcb", ".GM3", ""
     );
     pcb.add_mask_layer(".GBS", ".GBO");
     pcb.add_copper_layer(".GBL");
