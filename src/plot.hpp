@@ -36,16 +36,6 @@
 namespace plot {
 
 /**
- * Represents a single path, either open or closed (based on context).
- */
-using Path = ClipperLib::Path;
-
-/**
- * Represents multiple paths.
- */
-using Paths = ClipperLib::Paths;
-
-/**
  * Polygon fill rule.
  */
 using FillRule = ClipperLib::PolyFillType;
@@ -65,7 +55,7 @@ private:
      * called priot to adding the new paths to the accumulator, and then
      * commit_paths() must be called again with the desired fill rule.
      */
-    mutable Paths accum_paths;
+    mutable coord::Paths accum_paths;
 
     /**
      * Whether the paths in the accumulator are to be interpreted as making the
@@ -76,12 +66,12 @@ private:
     /**
      * Set of committed paths that make the plot dark. Doesn't intersect clear.
      */
-    mutable Paths dark;
+    mutable coord::Paths dark;
 
     /**
      * Set of committed paths that make the plot clear. Doesn't intersect dark.
      */
-    mutable Paths clear;
+    mutable coord::Paths clear;
 
     /**
      * Whether dark and clear have been simplified yet.
@@ -106,14 +96,14 @@ public:
      * Constructs a plot, optionally with initial conditions for the dark and
      * clear surfaces.
      */
-    explicit Plot(const Paths &dark = {}, const Paths &clear = {});
+    explicit Plot(const coord::Paths &dark = {}, const coord::Paths &clear = {});
 
     /**
      * Adds paths to the plot with the given polarity. It is assumed that the
      * paths are all positively wound, and that nonzero/positive winding rules
      * apply.
      */
-    void draw_paths(const Paths &ps, bool polarity = true);
+    void draw_paths(const coord::Paths &ps, bool polarity = true);
 
     /**
      * Advanced method for adding paths, allowing coordinate transformations and
@@ -121,7 +111,7 @@ public:
      * rotate, mirror/scale.
      */
     void draw_paths(
-        const Paths &ps,
+        const coord::Paths &ps,
         bool polarity,
         coord::CInt translate_x,
         coord::CInt translate_y = 0,
@@ -152,13 +142,13 @@ public:
      * Returns the surface that was made dark as a simplified
      * nonzero/odd-even-filled polygon.
      */
-    const Paths &get_dark() const;
+    const coord::Paths &get_dark() const;
 
     /**
      * Returns the surface that was explicitly made clear as a simplified
      * nonzero/odd-even-filled polygon.
      */
-    const Paths &get_clear() const;
+    const coord::Paths &get_clear() const;
 
 };
 
@@ -166,10 +156,5 @@ public:
  * Reference to a plot.
  */
 using Ref = std::shared_ptr<Plot>;
-
-/**
- * Renders an open path to a polygon by applying thickness.
- */
-Paths render_path(const Path &path, double thickness, const coord::Format &fmt, bool square=false);
 
 } // namespace plot

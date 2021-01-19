@@ -170,7 +170,7 @@ private:
      * Tool path. When commit_path() is called, the path is committed using the
      * current tool.
      */
-    plot::Path path;
+    coord::Path path;
 
     /**
      * Plot for plated holes.
@@ -221,7 +221,7 @@ public:
      * Returns the cutout paths for this NC drill file as negatively-wound
      * polygons.
      */
-    plot::Paths get_paths(bool plated=true, bool unplated=true) const;
+    coord::Paths get_paths(bool plated=true, bool unplated=true) const;
 
     /**
      * Returns the center coordinates of all plated holes.

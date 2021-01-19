@@ -29,6 +29,7 @@
 #include <sstream>
 #include <cmath>
 #include "ncdrill.hpp"
+#include "path.hpp"
 
 namespace ncdrill {
 
@@ -61,10 +62,10 @@ void NCDrill::commit_path() {
         throw std::runtime_error("tool use before any tool is selected");
     }
     if (tool->is_plated()) {
-        plot_pth.draw_paths(plot::render_path(path, tool->get_diameter(), fmt));
+        plot_pth.draw_paths(path::render(path, tool->get_diameter(), fmt));
         vias.insert(vias.end(), path.begin(), path.end());
     } else {
-        plot_npth.draw_paths(plot::render_path(path, tool->get_diameter(), fmt));
+        plot_npth.draw_paths(path::render(path, tool->get_diameter(), fmt));
     }
     path.clear();
 }
@@ -447,8 +448,8 @@ NCDrill::NCDrill(std::istream &s, bool default_plated) {
  * Returns the cutout paths for this NC drill file as negatively-wound
  * polygons.
  */
-plot::Paths NCDrill::get_paths(bool plated, bool unplated) const {
-    plot::Paths paths;
+coord::Paths NCDrill::get_paths(bool plated, bool unplated) const {
+    coord::Paths paths;
     if (plated) {
         if (unplated) {
             ClipperLib::Clipper c;

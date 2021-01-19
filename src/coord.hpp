@@ -49,6 +49,16 @@ using CPt = ClipperLib::IntPoint;
 using CRect = ClipperLib::IntRect;
 
 /**
+ * Represents a single path, either open or closed (based on context).
+ */
+using Path = ClipperLib::Path;
+
+/**
+ * Represents multiple paths.
+ */
+using Paths = ClipperLib::Paths;
+
+/**
  * Coordinate format handling. This class converts between Gerber fixed-point
  * and floating point format coordinates, an internal high-accuracy integer
  * representation used for polygon operations, and millimeters for the output.

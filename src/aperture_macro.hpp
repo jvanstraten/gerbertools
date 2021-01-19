@@ -73,6 +73,7 @@ private:
     );
 
 public:
+    virtual ~Expression() = default;
 
     /**
      * Parse the given expression.

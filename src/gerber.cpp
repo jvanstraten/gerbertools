@@ -29,6 +29,7 @@
 #include <cmath>
 #include <vector>
 #include "gerber.hpp"
+#include "path.hpp"
 
 namespace gerber {
 
@@ -115,12 +116,12 @@ public:
     /**
      * Interpolates the arc to a path with a given maximum deviation.
      */
-    Path to_path(double epsilon) const {
+    coord::Path to_path(double epsilon) const {
         double r = (r1 + r2) * 0.5;
         double x = (r > epsilon) ? (1.0 - epsilon / r) : 0.0;
         double th = std::acos(2.0 * x * x - 1.0) + 1e-3;
         auto n_vertices = (size_t)std::ceil(std::abs(a2 - a1) / th);
-        Path p;
+        coord::Path p;
         for (size_t i = 0; i <= n_vertices; i++) {
             double f2 = (double)i / (double)n_vertices;
             double f1 = 1.0 - f2;
@@ -161,7 +162,7 @@ void Gerber::interpolate(coord::CPt dest, coord::CPt center) {
 
     // Interpolate a path from current position (pos) to dest using the
     // current interpolation mode.
-    Path path;
+    coord::Path path;
     if (imode == InterpolationMode::UNDEFINED) {
         throw std::runtime_error("interpolate command before mode set");
     } else if (imode == InterpolationMode::LINEAR) {
@@ -257,7 +258,7 @@ void Gerber::interpolate(coord::CPt dest, coord::CPt center) {
     }
 
     // Use Clipper to add thickness to the path.
-    Paths paths = plot::render_path(path, thickness, fmt);
+    coord::Paths paths = path::render(path, thickness, fmt);
 
     // Add the path to the plot.
     plot_stack.back()->draw_paths(paths, polarity);
@@ -656,7 +657,7 @@ Gerber::Gerber(std::istream &s) {
 /**
  * Returns the paths representing the Gerber file.
  */
-const Paths &Gerber::get_paths() const {
+const coord::Paths &Gerber::get_paths() const {
     return plot_stack.back()->get_dark();
 }
 
@@ -667,7 +668,7 @@ const Paths &Gerber::get_paths() const {
  * a bit sensitive to round-off error and probably not work right if the
  * file isn't a proper outline; your mileage may vary.
  */
-const Paths &Gerber::get_outline_paths() {
+const coord::Paths &Gerber::get_outline_paths() {
 
     // Return immediately when the outline has already been constructed.
     if (outline_constructed) {
@@ -730,7 +731,7 @@ const Paths &Gerber::get_outline_paths() {
         end_points.push_back(endpts);
     }
 
-    Paths paths;
+    coord::Paths paths;
     while (!points.empty()) {
         auto cur = *(points.begin());
 
@@ -745,7 +746,7 @@ const Paths &Gerber::get_outline_paths() {
         // valid cycle or not. Even if it isn't, we can remove all the points
         // we find from the set.
         bool is_loop = true;
-        Path path;
+        coord::Path path;
         size_t start_index = cur->front();
         size_t cur_index = cur->back();
         while (true) {

@@ -56,6 +56,7 @@ protected:
     plot::Ref plot;
 
 public:
+    virtual ~Base() = default;
 
     /**
      * Returns the plot that represents the shape of the aperture.
@@ -105,7 +106,7 @@ protected:
      * Returns the path for the hole. That is, a negatively wound circle, or
      * no path at all if the diameter is zero.
      */
-    plot::Paths get_hole(const coord::Format &fmt) const;
+    coord::Paths get_hole(const coord::Format &fmt) const;
 
 };
 

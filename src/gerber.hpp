@@ -41,9 +41,6 @@
  */
 namespace gerber {
 
-using Path = plot::Path;
-using Paths = plot::Paths;
-
 /**
  * Gerber interpolation mode.
  */
@@ -197,7 +194,7 @@ private:
      * committed to the current plot and the accumulator is cleared via
      * commit_region().
      */
-    Path region_accum;
+    coord::Path region_accum;
 
     /**
      * Accumulates all linear or circular interpolations drawn onto the topmost
@@ -206,7 +203,7 @@ private:
      * may then be used to reconstruct board outline and milling data when the
      * Gerber in question is the board outline and/or milling layer.
      */
-    Paths outline;
+    coord::Paths outline;
 
     /**
      * Whether the outline has been constructed yet. If false, outline contains
@@ -257,7 +254,7 @@ public:
     /**
      * Returns the paths representing the Gerber file.
      */
-    const Paths &get_paths() const;
+    const coord::Paths &get_paths() const;
 
     /**
      * Attempts to interpret the Gerber file data as the board outline and/or
@@ -266,7 +263,7 @@ public:
      * a bit sensitive to round-off error and probably not work right if the
      * file isn't a proper outline; your mileage may vary.
      */
-    const Paths &get_outline_paths();
+    const coord::Paths &get_outline_paths();
 
 };
 

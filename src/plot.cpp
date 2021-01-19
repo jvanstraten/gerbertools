@@ -71,7 +71,7 @@ void Plot::simplify() const {
  * Constructs a plot, optionally with initial conditions for the dark and
  * clear surfaces.
  */
-Plot::Plot(const Paths &dark, const Paths &clear) :
+Plot::Plot(const coord::Paths &dark, const coord::Paths &clear) :
     accum_polarity(true),
     dark(dark),
     clear(clear),
@@ -84,7 +84,7 @@ Plot::Plot(const Paths &dark, const Paths &clear) :
  * paths are all positively wound, and that nonzero/positive winding rules
  * apply.
  */
-void Plot::draw_paths(const Paths &ps, bool polarity) {
+void Plot::draw_paths(const coord::Paths &ps, bool polarity) {
     if (ps.empty()) return;
 
     // If the polarity is not the same as the accumulator, we have to commit
@@ -102,7 +102,7 @@ void Plot::draw_paths(const Paths &ps, bool polarity) {
  * rotate, mirror/scale.
  */
 void Plot::draw_paths(
-    const Paths &ps, bool polarity,
+    const coord::Paths &ps, bool polarity,
     coord::CInt translate_x, coord::CInt translate_y,
     bool mirror_x, bool mirror_y,
     double rotate, double scale,
@@ -178,7 +178,7 @@ void Plot::draw_plot(
  * Returns the surface that was made dark as a simplified
  * nonzero/odd-even-filled polygon.
  */
-const Paths &Plot::get_dark() const {
+const coord::Paths &Plot::get_dark() const {
     commit_paths();
     simplify();
     return dark;
@@ -188,25 +188,10 @@ const Paths &Plot::get_dark() const {
  * Returns the surface that was explicitly made clear as a simplified
  * nonzero/odd-even-filled polygon.
  */
-const Paths &Plot::get_clear() const {
+const coord::Paths &Plot::get_clear() const {
     commit_paths();
     simplify();
     return clear;
-}
-
-/**
- * Renders an open path to a polygon by applying thickness.
- */
-Paths render_path(const Path &path, double thickness, const coord::Format &fmt, bool square) {
-    auto co = fmt.build_clipper_offset();
-    co.AddPath(
-        path,
-        square ? ClipperLib::jtMiter : ClipperLib::jtRound,
-        square ? ClipperLib::etOpenButt : ClipperLib::etOpenRound
-    );
-    Paths paths;
-    co.Execute(paths, thickness * 0.5);
-    return paths;
 }
 
 } // namespace plot

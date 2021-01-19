@@ -34,6 +34,7 @@
 #include <vector>
 #include <sstream>
 #include "aperture_macro.hpp"
+#include "path.hpp"
 
 namespace aperture_macro {
 
@@ -460,7 +461,7 @@ aperture::Ref ApertureMacro::build(const std::vector<std::string> &csep, const c
                 double center_x = cmd.at(3)->eval(vars);
                 double center_y = cmd.at(4)->eval(vars);
                 double rotation = (cmd.size() > 5) ? cmd.at(5)->eval(vars) : 0.0;
-                auto paths = plot::render_path({
+                auto paths = path::render({
                     {
                         fmt.to_fixed(center_x),
                         fmt.to_fixed(center_y)
@@ -488,7 +489,7 @@ aperture::Ref ApertureMacro::build(const std::vector<std::string> &csep, const c
                 double end_x = cmd.at(5)->eval(vars);
                 double end_y = cmd.at(6)->eval(vars);
                 double rotation = (cmd.size() > 7) ? cmd.at(7)->eval(vars) : 0.0;
-                auto paths = plot::render_path({
+                auto paths = path::render({
                     {
                         fmt.to_fixed(start_x),
                         fmt.to_fixed(start_y)
@@ -518,7 +519,7 @@ aperture::Ref ApertureMacro::build(const std::vector<std::string> &csep, const c
                 double center_x = cmd.at(4)->eval(vars);
                 double center_y = cmd.at(5)->eval(vars);
                 double rotation = (cmd.size() > 6) ? cmd.at(6)->eval(vars) : 0.0;
-                plot::Paths paths = {{
+                coord::Paths paths = {{
                     {
                         fmt.to_fixed(center_x + width * 0.5),
                         fmt.to_fixed(center_y + height * 0.5)
@@ -558,7 +559,7 @@ aperture::Ref ApertureMacro::build(const std::vector<std::string> &csep, const c
                     throw std::runtime_error("invalid outline command in aperture macro");
                 }
                 double rotation = (cmd.size() > rotation_index) ? cmd.at(rotation_index)->eval(vars) : 0.0;
-                plot::Paths paths = {{}};
+                coord::Paths paths = {{}};
                 for (size_t i = 0; i < n_vertices; i++) {
                     paths.back().push_back({
                         fmt.to_fixed(cmd.at(3 + 2*i)->eval(vars)),
@@ -587,7 +588,7 @@ aperture::Ref ApertureMacro::build(const std::vector<std::string> &csep, const c
                 double center_y = cmd.at(4)->eval(vars);
                 double diameter = std::abs(cmd.at(5)->eval(vars));
                 double rotation = (cmd.size() > 6) ? cmd.at(6)->eval(vars) : 0.0;
-                plot::Paths ps = {{}};
+                coord::Paths ps = {{}};
                 for (size_t i = 0; i < n_vertices; i++) {
                     double a = ((double)i / (double)n_vertices) * 2.0 * M_PI;
                     ps.push_back({
@@ -619,9 +620,9 @@ aperture::Ref ApertureMacro::build(const std::vector<std::string> &csep, const c
                 double ch_thickness = std::abs(cmd.at(7)->eval(vars));
                 double ch_length = std::abs(cmd.at(8)->eval(vars));
                 double rotation = (cmd.size() > 9) ? cmd.at(9)->eval(vars) : 0.0;
-                plot::Paths paths = {};
+                coord::Paths paths = {};
                 for (size_t i = 0; i < max_rings*2 && diameter > 0.0; i++) {
-                    auto circle_paths = plot::render_path({
+                    auto circle_paths = path::render({
                         {
                             fmt.to_fixed(center_x),
                             fmt.to_fixed(center_y)
@@ -696,14 +697,14 @@ aperture::Ref ApertureMacro::build(const std::vector<std::string> &csep, const c
                 double gap = std::abs(cmd.at(5)->eval(vars));
                 double rotation = (cmd.size() > 6) ? cmd.at(6)->eval(vars) : 0.0;
 
-                auto paths = plot::render_path({
+                auto paths = path::render({
                     {
                         fmt.to_fixed(center_x),
                         fmt.to_fixed(center_y)
                     }
                 }, fmt.to_fixed(outer), fmt);
 
-                auto inner_paths = plot::render_path({
+                auto inner_paths = path::render({
                     {
                         fmt.to_fixed(center_x),
                         fmt.to_fixed(center_y)

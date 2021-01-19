@@ -28,6 +28,7 @@
 
 #include <cmath>
 #include "aperture.hpp"
+#include "path.hpp"
 
 namespace aperture {
 
@@ -58,11 +59,11 @@ Custom::Custom(const plot::Ref &data) {
  * Returns the path for the hole. That is, a negatively wound circle, or
  * no path at all if the diameter is zero.
  */
-plot::Paths Standard::get_hole(const coord::Format &fmt) const {
+coord::Paths Standard::get_hole(const coord::Format &fmt) const {
     if (hole_diameter <= 0.0) {
         return {};
     }
-    auto paths = plot::render_path({{0, 0}}, hole_diameter, fmt);
+    auto paths = path::render({{0, 0}}, hole_diameter, fmt);
     ClipperLib::ReversePaths(paths);
     return paths;
 }
@@ -82,7 +83,7 @@ Circle::Circle(const std::vector<std::string> &csep, const coord::Format &fmt) {
     hole_diameter = (csep.size() > 2) ? fmt.parse_float(csep.at(2)) : 0;
 
     // Construct the plot.
-    auto paths = plot::render_path({{0, 0}}, diameter, fmt);
+    auto paths = path::render({{0, 0}}, diameter, fmt);
     auto hole = get_hole(fmt);
     paths.insert(paths.end(), hole.begin(), hole.end());
     plot = std::make_shared<plot::Plot>(paths);
@@ -118,7 +119,7 @@ Rectangle::Rectangle(const std::vector<std::string> &csep, const coord::Format &
     // Construct the plot.
     coord::CInt x = x_size / 2;
     coord::CInt y = y_size / 2;
-    plot::Paths paths{{
+    coord::Paths paths{{
          {x, y},
          {x, -y},
          {-x, -y},
@@ -151,7 +152,7 @@ Obround::Obround(const std::vector<std::string> &csep, const coord::Format &fmt)
     coord::CInt r = std::min(x, y);
     x -= r;
     y -= r;
-    auto paths = plot::render_path({{-x, -y}, {x, y}}, r * 2.0, fmt);
+    auto paths = path::render({{-x, -y}, {x, y}}, r * 2.0, fmt);
     auto hole = get_hole(fmt);
     paths.insert(paths.end(), hole.begin(), hole.end());
     plot = std::make_shared<plot::Plot>(paths);
@@ -178,7 +179,7 @@ Polygon::Polygon(const std::vector<std::string> &csep, const coord::Format &fmt)
     hole_diameter = (csep.size() > 4) ? fmt.parse_float(csep.at(4)) : 0;
 
     // Construct the plot.
-    plot::Paths paths = {{}};
+    coord::Paths paths = {{}};
     for (size_t i = 0; i < n_vertices; i++) {
         double a = ((double)i / (double)n_vertices) * 2.0 * M_PI;
         paths.back().push_back({
