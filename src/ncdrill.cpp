@@ -26,10 +26,11 @@
  * Handles parsing NC drill files.
  */
 
-#include <sstream>
+#define _USE_MATH_DEFINES
 #include <cmath>
-#include "ncdrill.hpp"
-#include "path.hpp"
+#include <sstream>
+#include "gerbertools/ncdrill.hpp"
+#include "gerbertools/path.hpp"
 
 namespace ncdrill {
 

@@ -38,7 +38,8 @@
 *                                                                              *
 *******************************************************************************/
 
-#include "clipper.hpp"
+#include "gerbertools/clipper.hpp"
+#define _USE_MATH_DEFINES
 #include <cmath>
 #include <vector>
 #include <algorithm>

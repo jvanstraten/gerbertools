@@ -29,8 +29,8 @@
 #pragma once
 
 #include <memory>
-#include "coord.hpp"
-#include "clipper.hpp"
+#include "gerbertools/coord.hpp"
+#include "gerbertools/clipper.hpp"
 
 /**
  * Contains shorthands for path/polygon operations.

@@ -26,6 +26,7 @@
  * Handles all the complexity related to aperture macros.
  */
 
+#define _USE_MATH_DEFINES
 #include <cmath>
 #include <algorithm>
 #include <memory>
@@ -33,8 +34,8 @@
 #include <map>
 #include <vector>
 #include <sstream>
-#include "aperture_macro.hpp"
-#include "path.hpp"
+#include "gerbertools/aperture_macro.hpp"
+#include "gerbertools/path.hpp"
 
 namespace aperture_macro {
 

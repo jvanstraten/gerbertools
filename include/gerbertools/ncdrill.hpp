@@ -31,9 +31,9 @@
 #include <memory>
 #include <map>
 #include <fstream>
-#include "clipper.hpp"
-#include "coord.hpp"
-#include "plot.hpp"
+#include "gerbertools/clipper.hpp"
+#include "gerbertools/coord.hpp"
+#include "gerbertools/plot.hpp"
 
 /**
  * Namespace for parsing NC drill files.

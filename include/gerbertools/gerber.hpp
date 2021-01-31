@@ -31,10 +31,10 @@
 #include <string>
 #include <list>
 #include <map>
-#include "coord.hpp"
-#include "plot.hpp"
-#include "aperture.hpp"
-#include "aperture_macro.hpp"
+#include "gerbertools/coord.hpp"
+#include "gerbertools/plot.hpp"
+#include "gerbertools/aperture.hpp"
+#include "gerbertools/aperture_macro.hpp"
 
 /**
  * Namespace for the Gerber file reader.

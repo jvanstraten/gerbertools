@@ -36,8 +36,8 @@
 #pragma once
 
 #include <memory>
-#include "coord.hpp"
-#include "plot.hpp"
+#include "gerbertools/coord.hpp"
+#include "gerbertools/plot.hpp"
 
 /**
  * Namespace for objects representing apertures.

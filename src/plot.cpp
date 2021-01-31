@@ -27,8 +27,9 @@
  * Also includes some utility functions.
  */
 
+#define _USE_MATH_DEFINES
 #include <cmath>
-#include "plot.hpp"
+#include "gerbertools/plot.hpp"
 
 namespace plot {
 

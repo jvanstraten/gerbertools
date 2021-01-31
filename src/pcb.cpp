@@ -27,10 +27,10 @@
  * reconstructed from Gerber files and an NC drill file.
  */
 
-#include "gerber.hpp"
-#include "ncdrill.hpp"
-#include "pcb.hpp"
-#include "path.hpp"
+#include "gerbertools/gerber.hpp"
+#include "gerbertools/ncdrill.hpp"
+#include "gerbertools/pcb.hpp"
+#include "gerbertools/path.hpp"
 
 namespace pcb {
 

@@ -32,8 +32,8 @@
 #include <string>
 #include <memory>
 #include <fstream>
-#include "coord.hpp"
-#include "color.hpp"
+#include "gerbertools/coord.hpp"
+#include "gerbertools/color.hpp"
 
 /**
  * Contains the CircuitBoard class, representing a complete circuit board as

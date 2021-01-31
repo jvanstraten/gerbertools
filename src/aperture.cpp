@@ -26,9 +26,10 @@
  * Defines objects representing apertures.
  */
 
+#define _USE_MATH_DEFINES
 #include <cmath>
-#include "aperture.hpp"
-#include "path.hpp"
+#include "gerbertools/aperture.hpp"
+#include "gerbertools/path.hpp"
 
 namespace aperture {
 

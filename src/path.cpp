@@ -26,8 +26,8 @@
  * Defines shorthands for path/polygon operations.
  */
 
-#include "clipper.hpp"
-#include "path.hpp"
+#include "gerbertools/clipper.hpp"
+#include "gerbertools/path.hpp"
 
 namespace path {
 

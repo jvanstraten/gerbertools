@@ -26,8 +26,9 @@
  * Types and conversions for Gerber, NC drill, and internal coordinate formats.
  */
 
+#define _USE_MATH_DEFINES
 #include <cmath>
-#include "coord.hpp"
+#include "gerbertools/coord.hpp"
 
 namespace coord {
 

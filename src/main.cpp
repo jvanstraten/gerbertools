@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-#include "pcb.hpp"
+#include "gerbertools/pcb.hpp"
 
 int main(int argc, char *argv[]) {
 

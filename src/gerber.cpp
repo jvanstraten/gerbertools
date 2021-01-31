@@ -26,10 +26,11 @@
  * Defines the top-level class for parsing Gerber files.
  */
 
+#define _USE_MATH_DEFINES
 #include <cmath>
 #include <vector>
-#include "gerber.hpp"
-#include "path.hpp"
+#include "gerbertools/gerber.hpp"
+#include "gerbertools/path.hpp"
 
 namespace gerber {
 

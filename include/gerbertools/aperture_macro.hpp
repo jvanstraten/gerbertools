@@ -33,9 +33,9 @@
 #include <map>
 #include <vector>
 #include <sstream>
-#include "coord.hpp"
-#include "plot.hpp"
-#include "aperture.hpp"
+#include "gerbertools/coord.hpp"
+#include "gerbertools/plot.hpp"
+#include "gerbertools/aperture.hpp"
 
 namespace aperture_macro {
 
