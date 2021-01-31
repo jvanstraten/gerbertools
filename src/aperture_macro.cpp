@@ -37,6 +37,7 @@
 #include "gerbertools/aperture_macro.hpp"
 #include "gerbertools/path.hpp"
 
+namespace gerbertools {
 namespace aperture_macro {
 
 /**
@@ -778,3 +779,4 @@ aperture::Ref ApertureMacro::build(const std::vector<std::string> &csep, const c
 }
 
 } // namespace aperture_macro
+} // namespace gerbertools

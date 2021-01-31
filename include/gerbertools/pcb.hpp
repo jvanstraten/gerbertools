@@ -35,6 +35,8 @@
 #include "gerbertools/coord.hpp"
 #include "gerbertools/color.hpp"
 
+namespace gerbertools {
+
 /**
  * Contains the CircuitBoard class, representing a complete circuit board as
  * reconstructed from Gerber files and an NC drill file.
@@ -439,3 +441,4 @@ public:
 };
 
 } // namespace pcb
+} // namespace gerbertools

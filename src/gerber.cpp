@@ -32,6 +32,7 @@
 #include "gerbertools/gerber.hpp"
 #include "gerbertools/path.hpp"
 
+namespace gerbertools {
 namespace gerber {
 
 /**
@@ -799,3 +800,4 @@ const coord::Paths &Gerber::get_outline_paths() {
 }
 
 } // namespace gerber
+} // namespace gerbertools

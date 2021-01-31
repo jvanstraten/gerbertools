@@ -32,6 +32,8 @@
 #include "gerbertools/coord.hpp"
 #include "gerbertools/clipper.hpp"
 
+namespace gerbertools {
+
 /**
  * Contains shorthands for path/polygon operations.
  */
@@ -68,3 +70,4 @@ coord::Paths intersect(const coord::Paths &lhs, const coord::Paths &rhs);
 coord::Paths offset(coord::Paths src, double amount);
 
 } // namespace path
+} // namespace gerbertools

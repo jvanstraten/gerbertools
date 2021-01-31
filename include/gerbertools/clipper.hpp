@@ -59,6 +59,7 @@
 #include <functional>
 #include <queue>
 
+namespace gerbertools {
 namespace ClipperLib {
 
 enum ClipType { ctIntersection, ctUnion, ctDifference, ctXor };
@@ -400,6 +401,7 @@ class clipperException : public std::exception
 //------------------------------------------------------------------------------
 
 } //ClipperLib namespace
+} // namespace gerbertools
 
 #endif //clipper_hpp
 

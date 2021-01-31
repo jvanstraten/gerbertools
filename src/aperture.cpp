@@ -31,6 +31,7 @@
 #include "gerbertools/aperture.hpp"
 #include "gerbertools/path.hpp"
 
+namespace gerbertools {
 namespace aperture {
 
 /**
@@ -196,3 +197,4 @@ Polygon::Polygon(const std::vector<std::string> &csep, const coord::Format &fmt)
 }
 
 } // namespace aperture
+} // namespace gerbertools

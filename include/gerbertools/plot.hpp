@@ -33,6 +33,11 @@
 #include "gerbertools/coord.hpp"
 #include "gerbertools/clipper.hpp"
 
+namespace gerbertools {
+
+/**
+ * Namespace for the Plot class, representing a polygon-based images.
+ */
 namespace plot {
 
 /**
@@ -158,3 +163,4 @@ public:
 using Ref = std::shared_ptr<Plot>;
 
 } // namespace plot
+} // namespace gerbertools

@@ -24,6 +24,8 @@
 
 #include "gerbertools/pcb.hpp"
 
+using namespace gerbertools;
+
 int main(int argc, char *argv[]) {
     (void)argc;
     (void)argv;

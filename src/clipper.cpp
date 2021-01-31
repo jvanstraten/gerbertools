@@ -49,6 +49,7 @@
 #include <ostream>
 #include <functional>
 
+namespace gerbertools {
 namespace ClipperLib {
 
 static double const pi = 3.141592653589793238;
@@ -4628,3 +4629,4 @@ std::ostream& operator <<(std::ostream &s, const Paths &p)
 //------------------------------------------------------------------------------
 
 } //ClipperLib namespace
+} // namespace gerbertools

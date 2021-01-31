@@ -38,6 +38,11 @@
 #include "gerbertools/plot.hpp"
 #include "gerbertools/aperture.hpp"
 
+namespace gerbertools {
+
+/**
+ * Namespace for aperture macro nonsense.
+ */
 namespace aperture_macro {
 
 class Expression;
@@ -311,3 +316,4 @@ public:
 };
 
 } // namespace aperture_macro
+} // namespace gerbertools

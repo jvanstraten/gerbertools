@@ -31,6 +31,7 @@
 #include <string>
 #include "gerbertools/clipper.hpp"
 
+namespace gerbertools {
 namespace coord {
 
 /**
@@ -205,3 +206,4 @@ public:
 };
 
 } // namespace coord
+} // namespace gerbertools

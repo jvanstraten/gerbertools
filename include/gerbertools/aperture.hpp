@@ -26,19 +26,14 @@
  * Defines objects representing apertures.
  */
 
-// This was a triumph
-// I'm making a note here:
-//
-//      HUGE SUCCESS
-//
-// It's hard to overstate my satisfaction
-
 #pragma once
 
 #include <memory>
 #include <string>
 #include "gerbertools/coord.hpp"
 #include "gerbertools/plot.hpp"
+
+namespace gerbertools {
 
 /**
  * Namespace for objects representing apertures.
@@ -228,3 +223,4 @@ public:
 };
 
 } // namespace aperture
+} // namespace gerbertools

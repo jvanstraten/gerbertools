@@ -36,6 +36,8 @@
 #include "gerbertools/aperture.hpp"
 #include "gerbertools/aperture_macro.hpp"
 
+namespace gerbertools {
+
 /**
  * Namespace for the Gerber file reader.
  */
@@ -268,3 +270,4 @@ public:
 };
 
 } // namespace gerber
+} // namespace gerbertools

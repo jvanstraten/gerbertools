@@ -28,6 +28,8 @@
 
 #pragma once
 
+namespace gerbertools {
+
 /**
  * Contains stuff related to colors.
  */
@@ -106,3 +108,4 @@ static const Color SILK_WHITE = {0.9f, 0.9f, 0.9f, 0.9f};
 static const Color SILK_BLACK = {0.1f, 0.1f, 0.1f, 0.9f};
 
 } // namespace color
+} // namespace gerbertools

@@ -32,6 +32,7 @@
 #include "gerbertools/pcb.hpp"
 #include "gerbertools/path.hpp"
 
+namespace gerbertools {
 namespace pcb {
 
 /**
@@ -424,3 +425,4 @@ void CircuitBoard::write_svg(
 }
 
 } // namespace pcb
+} // namespace gerbertools

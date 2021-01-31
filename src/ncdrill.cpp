@@ -32,6 +32,7 @@
 #include "gerbertools/ncdrill.hpp"
 #include "gerbertools/path.hpp"
 
+namespace gerbertools {
 namespace ncdrill {
 
 /**
@@ -479,3 +480,4 @@ const std::list<coord::CPt> &NCDrill::get_vias() const {
 }
 
 } // namespace ncdrill
+} // namespace gerbertools

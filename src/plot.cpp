@@ -31,6 +31,7 @@
 #include <cmath>
 #include "gerbertools/plot.hpp"
 
+namespace gerbertools {
 namespace plot {
 
 /**
@@ -196,3 +197,4 @@ const coord::Paths &Plot::get_clear() const {
 }
 
 } // namespace plot
+} // namespace gerbertools

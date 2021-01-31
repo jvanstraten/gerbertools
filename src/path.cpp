@@ -29,6 +29,7 @@
 #include "gerbertools/clipper.hpp"
 #include "gerbertools/path.hpp"
 
+namespace gerbertools {
 namespace path {
 
 /**
@@ -109,3 +110,4 @@ coord::Paths offset(coord::Paths src, double amount) {
 }
 
 } // namespace path
+} // namespace gerbertools

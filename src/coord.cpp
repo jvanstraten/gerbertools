@@ -30,6 +30,7 @@
 #include <cmath>
 #include "gerbertools/coord.hpp"
 
+namespace gerbertools {
 namespace coord {
 
 /**
@@ -200,3 +201,4 @@ double Format::to_mm(CInt i) {
 }
 
 } // namespace coord
+} // namespace gerbertools

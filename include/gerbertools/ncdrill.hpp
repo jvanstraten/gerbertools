@@ -36,6 +36,8 @@
 #include "gerbertools/coord.hpp"
 #include "gerbertools/plot.hpp"
 
+namespace gerbertools {
+
 /**
  * Namespace for parsing NC drill files.
  */
@@ -232,3 +234,4 @@ public:
 };
 
 } // namespace ncdrill
+} // namespace gerbertools
