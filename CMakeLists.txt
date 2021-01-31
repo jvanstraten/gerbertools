@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.4...3.18)
 project(gerbertools CXX)
 include(GNUInstallDirs)
+set (CMAKE_CXX_STANDARD 11)
 
 # Target with all the normal C++ files.
 add_library(gerbertools_objlib OBJECT
