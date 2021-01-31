@@ -46,6 +46,7 @@ const plot::Plot &Base::get_plot() const {
  * non-null, the circle diameter is written to the pointer in addition.
  */
 bool Base::is_simple_circle(coord::CInt *diameter) const {
+    (void)diameter;
     return false;
 }
 

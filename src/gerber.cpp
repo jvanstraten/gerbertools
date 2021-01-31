@@ -688,7 +688,7 @@ const coord::Paths &Gerber::get_outline_paths() {
         std::pair<EndPoints, EndPoints> endpts;
         for (int endpt = 0; endpt < 2; endpt++) {
             auto c_fix = endpt ? path.back() : path.front();
-            auto c = std::make_pair<double, double>(c_fix.X, c_fix.Y);
+            auto c = std::make_pair((double)c_fix.X, (double)c_fix.Y);
 
             // Look for exact match first.
             auto it = point_map.find(c);

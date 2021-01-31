@@ -19,6 +19,10 @@ set_property(
     TARGET gerbertools_objlib
     PROPERTY POSITION_INDEPENDENT_CODE ON
 )
+# target_compile_options(
+#     gerbertools_objlib
+#     PUBLIC -Wall -Wextra -pedantic -Werror
+# )
 target_include_directories(
     gerbertools_objlib
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src

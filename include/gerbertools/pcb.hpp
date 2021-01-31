@@ -53,9 +53,14 @@ struct ColorScheme {
 public:
 
     /**
-     * Unexposed copper color.
+     * Soldermask color.
      */
-    color::Color copper;
+    color::Color soldermask;
+
+    /**
+     * Silkscreen color.
+     */
+    color::Color silkscreen;
 
     /**
      * Surface-finished copper color.
@@ -68,14 +73,9 @@ public:
     color::Color substrate;
 
     /**
-     * Soldermask color.
+     * Unexposed copper color.
      */
-    color::Color soldermask;
-
-    /**
-     * Silkscreen color.
-     */
-    color::Color silkscreen;
+    color::Color copper;
 
     /**
      * Creates a new color scheme.

@@ -255,6 +255,7 @@ LiteralExpression::LiteralExpression(double value) : value(value) {
  * Evaluate this expression with the given set of variables.
  */
 double LiteralExpression::eval(const Variables &vars) const {
+    (void)vars;
     return value;
 }
 
@@ -373,6 +374,7 @@ Token::Token(char token) : token(token) {
  * Evaluate this expression with the given set of variables.
  */
 double Token::eval(const Variables &vars) const {
+    (void)vars;
     throw std::runtime_error("cannot evaluate token");
 }
 

@@ -25,6 +25,8 @@
 #include "gerbertools/pcb.hpp"
 
 int main(int argc, char *argv[]) {
+    (void)argc;
+    (void)argv;
 
     /*pcb::CircuitBoard pcb(
         "/mnt/e/git/DARE subrepos/projects/stratos2plus/orders/2015-06-16/ecu-bottom/ecu-bottom", ".GKO", ".TXT"

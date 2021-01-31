@@ -76,23 +76,23 @@ private:
     /**
      * Number of integer positions.
      */
-    int n_int;
+    size_t n_int;
 
     /**
      * Number of decimal positions.
      */
-    int n_dec;
+    size_t n_dec;
+
+    /**
+     * Whether the unit (inch or millimeters) has been configured yet.
+     */
+    bool unit_configured;
 
     /**
      * Whether to add trailing zeros rather than leading zeros when too few
      * digits are given.
      */
     bool add_trailing_zeros;
-
-    /**
-     * Whether the unit (inch or millimeters) has been configured yet.
-     */
-    bool unit_configured;
 
     /**
      * Conversion factor from Gerber unit to millimeters; 25.4 for inch, 1.0 for
@@ -108,14 +108,14 @@ private:
     mutable bool used;
 
     /**
-     * Maximum arc deviation in millimeters.
-     */
-    double max_deviation;
-
-    /**
      * Miter limit in millimeters.
      */
     double miter_limit;
+
+    /**
+     * Maximum arc deviation in millimeters.
+     */
+    double max_deviation;
 
     /**
      * Throws an exception if the coordinate format has been used to convert
