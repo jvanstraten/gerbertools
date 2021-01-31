@@ -27,6 +27,7 @@
  */
 
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 #include "gerbertools/coord.hpp"
 #include "gerbertools/path.hpp"
 #include "gerbertools/pcb.hpp"
@@ -60,8 +61,8 @@ private:
     double arc_tolerance;
 
     size_t get_index(int64_t index) const {
-        if (index < p.size() || index >= p.size()) {
-            throw std::domain_error("index " + std::to_string(index) + " is out of range");
+        if (index < -(int64_t)p.size() || index >= (int64_t)p.size()) {
+            throw std::domain_error("index " + std::to_string(index) + " is out of range, size is " + std::to_string(p.size()));
         }
         if (index < 0) {
             index += p.size();
@@ -113,7 +114,7 @@ public:
         return miter_limit;
     }
 
-    double set_miter_limit(double x) {
+    void set_miter_limit(double x) {
         miter_limit = x;
     }
 
@@ -121,7 +122,7 @@ public:
         return arc_tolerance;
     }
 
-    double set_arc_tolerance(double x) {
+    void set_arc_tolerance(double x) {
         arc_tolerance = x;
     }
 
