@@ -57,4 +57,4 @@ jobs:
       # No (automated) tests yet, and knowing me there probably won't be any.
       # Just see if the thing loads correctly when imported.
       #run: python -m pytest
-      run: python -e 'import gerbertools'
+      run: python -c 'import gerbertools'
