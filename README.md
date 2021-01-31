@@ -34,8 +34,9 @@ Work in progress.
 
  - ` ` (Command line) user interface and C++ library.
 
- - ` ` Make a basic Python API for the above, wrap the thing in a Python wheel,
-   and publish on PyPI.
+ - `x` Make a basic Python API for the above, wrap the thing in a Python wheel...
+
+ - ` ` ...and publish on PyPI.
 
 ## Why?
 

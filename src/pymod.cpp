@@ -29,6 +29,7 @@
 #include <pybind11/pybind11.h>
 #include "gerbertools/coord.hpp"
 #include "gerbertools/path.hpp"
+#include "gerbertools/pcb.hpp"
 
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
@@ -203,9 +204,65 @@ public:
     }
 };
 
-int add(int i, int j) {
-    return i + j;
+using Color = std::tuple<float, float, float, float>;
+
+Color color_to_tuple(const color::Color &c) {
+    return {c.r, c.g, c.b, c.a};
 }
+
+color::Color tuple_to_color(const Color &c) {
+    return {std::get<0>(c), std::get<1>(c), std::get<2>(c), std::get<3>(c)};
+}
+
+class CircuitBoard {
+private:
+    pcb::CircuitBoard pcb;
+public:
+
+    CircuitBoard(
+        const std::string &basename,
+        const std::string &outline,
+        const std::string &drill,
+        const std::string &drill_nonplated,
+        const std::string &mill,
+        double plating_thickness
+    ) : pcb(basename, outline, drill, drill_nonplated, mill, plating_thickness) {}
+
+    void add_mask_layer(const std::string &mask, const std::string &silk) {
+        pcb.add_mask_layer(mask, silk);
+    }
+
+    void add_copper_layer(const std::string &gerber, double thickness) {
+        pcb.add_copper_layer(gerber, thickness);
+    }
+
+    void add_substrate_layer(double thickness) {
+        pcb.add_substrate_layer(thickness);
+    }
+
+    void add_surface_finish() {
+        pcb.add_surface_finish();
+    }
+
+    void write_svg(
+        const std::string &fname,
+        double scale,
+        const Color &soldermask,
+        const Color &silkscreen,
+        const Color &finish,
+        const Color &substrate,
+        const Color &copper
+    ) {
+        pcb.write_svg(fname, scale, pcb::ColorScheme(
+            tuple_to_color(soldermask),
+            tuple_to_color(silkscreen),
+            tuple_to_color(finish),
+            tuple_to_color(substrate),
+            tuple_to_color(copper)
+        ));
+    }
+
+};
 
 namespace py = pybind11;
 
@@ -236,15 +293,46 @@ PYBIND11_MODULE(_gerbertools, m) {
         .def("intersect", &Shape::intersect, "Computes the intersection of two shapes.")
         .def("__and__", &Shape::intersect, "Computes the intersection of two shapes.");
 
-    m.def("add", &add, R"pbdoc(
-        Add two numbers
-        Some other explanation about the add function.
-    )pbdoc");
+    py::class_<CircuitBoard>(m, "CircuitBoard", "A complete circuit board.")
+        .def(py::init<std::string, std::string, std::string, std::string, std::string, double>(),
+            py::arg("basename"),
+            py::arg("outline") = ".GKO",
+            py::arg("drill") = ".TXT",
+            py::arg("drill_nonplated") = "",
+            py::arg("mill") = "",
+            py::arg("plating_thickness") = 0.5 * pcb::COPPER_OZ,
+            R"doc(
+                Constructs a circuit board. The following files are to be specified:
+                 - basename: prefix for all filenames.
+                 - outline: the board outline Gerber file (GKO, GM1, etc). May also include milling information.
+                 - drill: the NC drill file (TXT).
+                 - drill_nonplated: if specified, non-plated holes will be added from this auxiliary NC drill file.
+                 - mill: if specified, adds another Gerber-based milling layer. Interpreted in the same way as outline.
+                 - plating_thickness: thickness of the hole plating in millimeters.
+            )doc")
+        .def("add_mask_layer", &CircuitBoard::add_mask_layer, py::arg("mask"), py::arg("silk")="", "Adds a soldermask/silkscreen layer. Layers are added bottom-up.")
+        .def("add_copper_layer", &CircuitBoard::add_copper_layer, py::arg("copper"), py::arg("thickness")=pcb::COPPER_OZ, "Adds a copper layer. Layers are added bottom-up.")
+        .def("add_substrate_layer", &CircuitBoard::add_substrate_layer, py::arg("thickness")=1.5, "Adds a substrate layer. Layers are added bottom-up.")
+        .def("add_surface_finish", &CircuitBoard::add_surface_finish, "Derives the surface finish layer for all exposed copper. Call after adding all layers.")
+        .def("write_svg", &CircuitBoard::write_svg,
+             py::arg("fname"),
+             py::arg("scale")=1.0,
+             py::arg("soldermask")=color_to_tuple(color::MASK_GREEN),
+             py::arg("silkscreen")=color_to_tuple(color::SILK_WHITE),
+             py::arg("finish")=color_to_tuple(color::FINISH_TIN),
+             py::arg("substrate")=color_to_tuple(color::SUBSTRATE),
+             py::arg("copper")=color_to_tuple(color::COPPER),
+             "Renders the circuit board to an SVG file."
+         );
 
-    m.def("subtract", [](int i, int j) { return i - j; }, R"pbdoc(
-        Subtract two numbers
-        Some other explanation about the subtract function.
-    )pbdoc");
+    auto m2 = m.def_submodule("color", "Defines some default colors.");
+    m2.def("copper", []() { return color_to_tuple(color::COPPER); }, "Returns the default color for copper.");
+    m2.def("finish_tin", []() { return color_to_tuple(color::FINISH_TIN); }, "Returns the default color for tin/HASL surface finish.");
+    m2.def("substrate", []() { return color_to_tuple(color::SUBSTRATE); }, "Returns the default color for an FR-4 substrate.");
+    m2.def("mask_green", []() { return color_to_tuple(color::MASK_GREEN); }, "Returns the default color for green soldermask.");
+    m2.def("mask_white", []() { return color_to_tuple(color::MASK_WHITE); }, "Returns the default color for white soldermask.");
+    m2.def("silk_white", []() { return color_to_tuple(color::SILK_WHITE); }, "Returns the default color for white silkscreen.");
+    m2.def("silk_black", []() { return color_to_tuple(color::SILK_BLACK); }, "Returns the default color for black silkscreen.");
 
 #ifdef VERSION_INFO
     m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);
