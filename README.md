@@ -1,10 +1,10 @@
-# Gerber file reader with no name yet
+# GerberTools
 
 Work in progress.
 
 ## Goals
 
- - ☐ Pick a name. I hate naming things.
+ - ☑ Pick a name. I hate naming things. [note: yes, I have no imagination.]
 
  - ☑ Interpret an [RS-274X file](https://www.ucamco.com/files/downloads/file_en/416/the-gerber-file-format-specification-revision-2020-09-update_en.pdf)
    to an independent polygon (using NonZero/OddEven winding rules for holes)
