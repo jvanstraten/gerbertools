@@ -93,7 +93,7 @@ static const Color MASK_GREEN = {0.1f, 0.6f, 0.3f, 0.6f};
 /**
  * Default color for white soldermask.
  */
-static const Color MASK_WHITE = {0.88f, 0.90f, 0.95f, 0.9f};
+static const Color MASK_WHITE = {0.9f, 0.93f, 1.00f, 0.8f};
 
 /**
  * Default color for white silkscreen.
