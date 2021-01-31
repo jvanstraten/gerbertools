@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include <string>
 #include "gerbertools/clipper.hpp"
 
 namespace coord {

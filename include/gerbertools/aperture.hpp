@@ -36,6 +36,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include "gerbertools/coord.hpp"
 #include "gerbertools/plot.hpp"
 
