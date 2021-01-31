@@ -35,16 +35,15 @@ namespace path {
 /**
  * Renders an open path to a polygon by applying thickness.
  */
-coord::Paths render(const coord::Path &path, double thickness, const coord::Format &fmt, bool square) {
-    auto co = fmt.build_clipper_offset();
-    co.AddPath(
-        path,
+coord::Paths render(const coord::Paths &paths, double thickness, bool square, ClipperLib::ClipperOffset &&co) {
+    co.AddPaths(
+        paths,
         square ? ClipperLib::jtMiter : ClipperLib::jtRound,
         square ? ClipperLib::etOpenButt : ClipperLib::etOpenRound
     );
-    coord::Paths paths;
-    co.Execute(paths, thickness * 0.5);
-    return paths;
+    coord::Paths out;
+    co.Execute(out, thickness * 0.5);
+    return out;
 }
 
 /**
@@ -98,15 +97,16 @@ coord::Paths intersect(const coord::Paths &lhs, const coord::Paths &rhs) {
 /**
  * Offsets the paths by the given amount.
  */
-coord::Paths offset(coord::Paths src, double amount) {
-    for (auto &p : src) {
-        p.push_back(p.front());
-    }
-    auto co = coord::Format().build_clipper_offset();
-    co.AddPaths(src, ClipperLib::jtMiter, ClipperLib::etOpenRound);
+coord::Paths offset(const coord::Paths &src, double amount, bool square, ClipperLib::ClipperOffset &&co) {
+    co.AddPaths(src, square ? ClipperLib::jtMiter : ClipperLib::jtRound, ClipperLib::etClosedLine);
     coord::Paths result;
-    co.Execute(result, coord::Format::from_mm(amount));
-    return add(result, src);
+    if (amount < 0) {
+        co.Execute(result, -amount);
+        return subtract(src, result);
+    } else {
+        co.Execute(result, amount);
+        return add(src, result);
+    }
 }
 
 } // namespace path

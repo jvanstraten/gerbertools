@@ -260,7 +260,7 @@ void Gerber::interpolate(coord::CPt dest, coord::CPt center) {
     }
 
     // Use Clipper to add thickness to the path.
-    coord::Paths paths = path::render(path, thickness, fmt);
+    coord::Paths paths = path::render({{path}}, thickness, false, fmt.build_clipper_offset());
 
     // Add the path to the plot.
     plot_stack.back()->draw_paths(paths, polarity);

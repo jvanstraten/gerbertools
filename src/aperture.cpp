@@ -66,7 +66,7 @@ coord::Paths Standard::get_hole(const coord::Format &fmt) const {
     if (hole_diameter <= 0.0) {
         return {};
     }
-    auto paths = path::render({{0, 0}}, hole_diameter, fmt);
+    auto paths = path::render({{{{0, 0}}}}, hole_diameter, false, fmt.build_clipper_offset());
     ClipperLib::ReversePaths(paths);
     return paths;
 }
@@ -86,7 +86,7 @@ Circle::Circle(const std::vector<std::string> &csep, const coord::Format &fmt) {
     hole_diameter = (csep.size() > 2) ? fmt.parse_float(csep.at(2)) : 0;
 
     // Construct the plot.
-    auto paths = path::render({{0, 0}}, diameter, fmt);
+    auto paths = path::render({{{{0, 0}}}}, diameter, false, fmt.build_clipper_offset());
     auto hole = get_hole(fmt);
     paths.insert(paths.end(), hole.begin(), hole.end());
     plot = std::make_shared<plot::Plot>(paths);
@@ -155,7 +155,7 @@ Obround::Obround(const std::vector<std::string> &csep, const coord::Format &fmt)
     coord::CInt r = std::min(x, y);
     x -= r;
     y -= r;
-    auto paths = path::render({{-x, -y}, {x, y}}, r * 2.0, fmt);
+    auto paths = path::render({{{{-x, -y}, {x, y}}}}, r * 2.0, false, fmt.build_clipper_offset());
     auto hole = get_hole(fmt);
     paths.insert(paths.end(), hole.begin(), hole.end());
     plot = std::make_shared<plot::Plot>(paths);

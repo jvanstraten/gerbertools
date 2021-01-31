@@ -73,7 +73,7 @@ pybind11_add_module(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/pymod.cpp
 )
 target_link_libraries(
-    gerbertools
+    _gerbertools
     PUBLIC gerbertools_objlib
 )
 if (PYTHON_EXT)

@@ -40,9 +40,14 @@ namespace gerbertools {
 namespace path {
 
 /**
- * Renders an open path to a polygon by applying thickness.
+ * Renders one or more open paths to a polygon by applying thickness.
  */
-coord::Paths render(const coord::Path &path, double thickness, const coord::Format &fmt, bool square=false);
+coord::Paths render(
+    const coord::Paths &paths,
+    double thickness,
+    bool square=false,
+    ClipperLib::ClipperOffset &&co=coord::Format().build_clipper_offset()
+);
 
 /**
  * Append paths odd-even style.
@@ -67,7 +72,12 @@ coord::Paths intersect(const coord::Paths &lhs, const coord::Paths &rhs);
 /**
  * Offsets the paths by the given amount.
  */
-coord::Paths offset(coord::Paths src, double amount);
+coord::Paths offset(
+    const coord::Paths &src,
+    double amount,
+    bool square=true,
+    ClipperLib::ClipperOffset &&co=coord::Format().build_clipper_offset()
+);
 
 } // namespace path
 } // namespace gerbertools

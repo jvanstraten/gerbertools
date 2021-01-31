@@ -329,7 +329,7 @@ CircuitBoard::CircuitBoard(
     board_shape = path::subtract(board_outline, holes);
 
     // Build plating.
-    coord::Paths pth_drill = path::offset(pth, plating_thickness);
+    coord::Paths pth_drill = path::offset(pth, coord::Format::from_mm(plating_thickness), true);
 
     // Make substrate shape.
     substrate_dielectric = path::subtract(board_outline, path::add(pth_drill, npth));

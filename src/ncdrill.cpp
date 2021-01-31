@@ -64,10 +64,10 @@ void NCDrill::commit_path() {
         throw std::runtime_error("tool use before any tool is selected");
     }
     if (tool->is_plated()) {
-        plot_pth.draw_paths(path::render(path, tool->get_diameter(), fmt));
+        plot_pth.draw_paths(path::render({{path}}, tool->get_diameter(), false, fmt.build_clipper_offset()));
         vias.insert(vias.end(), path.begin(), path.end());
     } else {
-        plot_npth.draw_paths(path::render(path, tool->get_diameter(), fmt));
+        plot_npth.draw_paths(path::render({{path}}, tool->get_diameter(), false, fmt.build_clipper_offset()));
     }
     path.clear();
 }

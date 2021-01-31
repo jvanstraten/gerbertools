@@ -465,12 +465,12 @@ aperture::Ref ApertureMacro::build(const std::vector<std::string> &csep, const c
                 double center_x = cmd.at(3)->eval(vars);
                 double center_y = cmd.at(4)->eval(vars);
                 double rotation = (cmd.size() > 5) ? cmd.at(5)->eval(vars) : 0.0;
-                auto paths = path::render({
+                auto paths = path::render({{{
                     {
                         fmt.to_fixed(center_x),
                         fmt.to_fixed(center_y)
                     }
-                }, fmt.to_fixed(diameter), fmt);
+                }}}, fmt.to_fixed(diameter), false, fmt.build_clipper_offset());
                 plot.draw_paths(
                     paths, exposure,
                     0, 0,
@@ -493,7 +493,7 @@ aperture::Ref ApertureMacro::build(const std::vector<std::string> &csep, const c
                 double end_x = cmd.at(5)->eval(vars);
                 double end_y = cmd.at(6)->eval(vars);
                 double rotation = (cmd.size() > 7) ? cmd.at(7)->eval(vars) : 0.0;
-                auto paths = path::render({
+                auto paths = path::render({{{
                     {
                         fmt.to_fixed(start_x),
                         fmt.to_fixed(start_y)
@@ -501,7 +501,7 @@ aperture::Ref ApertureMacro::build(const std::vector<std::string> &csep, const c
                         fmt.to_fixed(end_x),
                         fmt.to_fixed(end_y)
                     }
-                }, fmt.to_fixed(width), fmt, true);
+               }}}, fmt.to_fixed(width), true, fmt.build_clipper_offset());
                 plot.draw_paths(
                     paths, exposure,
                     0, 0,
@@ -626,12 +626,12 @@ aperture::Ref ApertureMacro::build(const std::vector<std::string> &csep, const c
                 double rotation = (cmd.size() > 9) ? cmd.at(9)->eval(vars) : 0.0;
                 coord::Paths paths = {};
                 for (size_t i = 0; i < max_rings*2 && diameter > 0.0; i++) {
-                    auto circle_paths = path::render({
+                    auto circle_paths = path::render({{{
                         {
                             fmt.to_fixed(center_x),
                             fmt.to_fixed(center_y)
                         }
-                    }, fmt.to_fixed(diameter), fmt);
+                    }}}, fmt.to_fixed(diameter), false, fmt.build_clipper_offset());
                     if (i & 1) {
                         ClipperLib::ReversePaths(circle_paths);
                         diameter -= gap * 2.0;
@@ -701,19 +701,19 @@ aperture::Ref ApertureMacro::build(const std::vector<std::string> &csep, const c
                 double gap = std::abs(cmd.at(5)->eval(vars));
                 double rotation = (cmd.size() > 6) ? cmd.at(6)->eval(vars) : 0.0;
 
-                auto paths = path::render({
+                auto paths = path::render({{{
                     {
                         fmt.to_fixed(center_x),
                         fmt.to_fixed(center_y)
                     }
-                }, fmt.to_fixed(outer), fmt);
+               }}}, fmt.to_fixed(outer), false, fmt.build_clipper_offset());
 
-                auto inner_paths = path::render({
+                auto inner_paths = path::render({{{
                     {
                         fmt.to_fixed(center_x),
                         fmt.to_fixed(center_y)
                     }
-                }, fmt.to_fixed(inner), fmt);
+                }}}, fmt.to_fixed(inner), false, fmt.build_clipper_offset());
                 ClipperLib::ReversePaths(inner_paths);
                 paths.insert(paths.end(), inner_paths.begin(), inner_paths.end());
 
