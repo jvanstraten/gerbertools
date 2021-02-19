@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
 
-    /*pcb::CircuitBoard pcb(
+    pcb::CircuitBoard pcb(
         "/mnt/e/git/DARE subrepos/projects/stratos2plus/orders/2015-06-16/ecu-bottom/ecu-bottom", ".GKO", ".TXT"
         //"/mnt/d/Jeroen/hobby/house/monitoring/cv-controller/hw/vert/JLCPCB/vert", ".GM2", ".TXT"
         //"O100030117 10by10 Green 1.6mm HASL 10pcs/mcu", ".GKO", ".TXT"
@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
     pcb.add_copper_layer(".GTL");
     pcb.add_mask_layer(".GTS", ".GTO");
     pcb.add_surface_finish();
-    pcb.write_svg("kek.svg", 20, {color::MASK_WHITE, color::SILK_BLACK});*/
+    pcb.write_svg("gfsdfds.svg", false, 20, {color::MASK_WHITE, color::SILK_BLACK});
 
 
     /*pcb::CircuitBoard pcb("/mnt/d/Jeroen/hobby/clock/components/cross/output/", "gbr.GM4", "ncd.TXT", "", "gbr.GM3");
@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
     pcb.add_surface_finish();
     pcb.write_svg("kek.svg", 50);*/
 
-    pcb::CircuitBoard pcb("/mnt/d/Jeroen/hobby/clock/gated-clock/", "kek.GM1", "kek.TXT");
+    /*pcb::CircuitBoard pcb("/mnt/d/Jeroen/hobby/clock/gated-clock/", "kek.GM1", "kek.TXT");
     pcb.add_mask_layer("kek.GBS", "kek.GBO");
     pcb.add_copper_layer("kek.GBL");
     pcb.add_substrate_layer(0.2);
@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
     pcb.add_copper_layer("kek.GTL");
     pcb.add_mask_layer("kek.GTS", "kek.GTO");
     pcb.add_surface_finish();
-    pcb.write_svg("/mnt/d/Jeroen/hobby/clock/gated-clock/kek.svg", 20, {color::MASK_WHITE, color::SILK_BLACK});
+    pcb.write_svg("/mnt/d/Jeroen/hobby/clock/gated-clock/kek.svg", true, 20, {color::MASK_WHITE, color::SILK_BLACK});*/
 
 
     /*std::ifstream f("/mnt/e/git/DARE subrepos/projects/stratos2plus/orders/2015-06-16/fts/fts.GBL");

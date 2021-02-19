@@ -245,8 +245,37 @@ public:
         pcb.add_surface_finish();
     }
 
+    std::tuple<double, double, double, double> get_bounds() {
+        auto bounds = pcb.get_bounds();
+        return {
+            coord::Format::to_mm(bounds.left),
+            coord::Format::to_mm(bounds.top),
+            coord::Format::to_mm(bounds.right),
+            coord::Format::to_mm(bounds.bottom)
+        };
+    }
+
+    std::string get_svg(
+        bool flipped,
+        const Color &soldermask,
+        const Color &silkscreen,
+        const Color &finish,
+        const Color &substrate,
+        const Color &copper,
+        const std::string &id_mask
+    ) {
+        return pcb.get_svg(flipped, pcb::ColorScheme(
+            tuple_to_color(soldermask),
+            tuple_to_color(silkscreen),
+            tuple_to_color(finish),
+            tuple_to_color(substrate),
+            tuple_to_color(copper)
+        ), id_mask);
+    }
+
     void write_svg(
         const std::string &fname,
+        bool flipped,
         double scale,
         const Color &soldermask,
         const Color &silkscreen,
@@ -254,7 +283,7 @@ public:
         const Color &substrate,
         const Color &copper
     ) {
-        pcb.write_svg(fname, scale, pcb::ColorScheme(
+        pcb.write_svg(fname, flipped, scale, pcb::ColorScheme(
             tuple_to_color(soldermask),
             tuple_to_color(silkscreen),
             tuple_to_color(finish),
@@ -315,8 +344,20 @@ PYBIND11_MODULE(_gerbertools, m) {
         .def("add_copper_layer", &CircuitBoard::add_copper_layer, py::arg("copper"), py::arg("thickness")=pcb::COPPER_OZ, "Adds a copper layer. Layers are added bottom-up.")
         .def("add_substrate_layer", &CircuitBoard::add_substrate_layer, py::arg("thickness")=1.5, "Adds a substrate layer. Layers are added bottom-up.")
         .def("add_surface_finish", &CircuitBoard::add_surface_finish, "Derives the surface finish layer for all exposed copper. Call after adding all layers.")
+        .def("get_bounds", &CircuitBoard::get_bounds, "Returns the axis-aligned bounds of the PCB in millimeters, ordered left, top, right, bottom.")
+        .def("get_svg", &CircuitBoard::get_svg,
+             py::arg("flipped")=false,
+             py::arg("soldermask")=color_to_tuple(color::MASK_GREEN),
+             py::arg("silkscreen")=color_to_tuple(color::SILK_WHITE),
+             py::arg("finish")=color_to_tuple(color::FINISH_TIN),
+             py::arg("substrate")=color_to_tuple(color::SUBSTRATE),
+             py::arg("copper")=color_to_tuple(color::COPPER),
+             py::arg("id_prefix")="",
+             "Renders the circuit board to SVG, returning only its body as a string."
+        )
         .def("write_svg", &CircuitBoard::write_svg,
              py::arg("fname"),
+             py::arg("flipped")=false,
              py::arg("scale")=1.0,
              py::arg("soldermask")=color_to_tuple(color::MASK_GREEN),
              py::arg("silkscreen")=color_to_tuple(color::SILK_WHITE),

@@ -13,6 +13,7 @@ add_library(gerbertools_objlib OBJECT
     ${CMAKE_CURRENT_SOURCE_DIR}/src/aperture_macro.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/gerber.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ncdrill.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/svg.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/pcb.cpp
 )
 set_property(

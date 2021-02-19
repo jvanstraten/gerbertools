@@ -34,6 +34,7 @@
 #include <fstream>
 #include "gerbertools/coord.hpp"
 #include "gerbertools/color.hpp"
+#include "gerbertools/svg.hpp"
 
 namespace gerbertools {
 
@@ -93,62 +94,15 @@ public:
 };
 
 /**
- * Helper class for rendering a PCB to an SVG.
- */
-class Svg {
-private:
-
-    /**
-     * Output stream for the SVG.
-     */
-    std::ofstream f;
-
-    /**
-     * Boundbox of the PCB in millimeters.
-     */
-    coord::CRect bounds;
-
-    /**
-     * Number of SVG units per millimeter.
-     */
-    double scale;
-
-    /**
-     * Size of the SVG in SVG units.
-     */
-    double width, height;
-
-public:
-
-    /**
-     * Starts rendering an SVG with the given filename, PCB bounds in
-     * millimeter, and SVG units per millimeter.
-     */
-    Svg(const std::string &fname, const coord::CRect &bounds, double scale=1.0);
-
-    /**
-     * Destroys this SVG writer, finishing the SVG first.
-     */
-    ~Svg();
-
-    /**
-     * Draws a path to the SVG. If the color is fully clear, the path is
-     * omitted.
-     */
-    void draw(coord::Paths paths, bool flipped, color::Color c = color::BLACK, bool blurred=false);
-
-    /**
-     * Finishes writing the SVG.
-     */
-    void close();
-
-};
-
-/**
  * Represents any PCB layer type.
  */
 class Layer {
 private:
+
+    /**
+     * The layer name.
+     */
+    std::string name;
 
     /**
      * Thickness of the layer.
@@ -160,10 +114,15 @@ protected:
     /**
      * Constructs a layer.
      */
-    explicit Layer(double thickness);
+    explicit Layer(const std::string &name, double thickness);
 
 public:
     virtual ~Layer() = default;
+
+    /**
+     * Returns a name for the layer.
+     */
+    std::string get_name() const;
 
     /**
      * Returns the thickness of this layer.
@@ -176,9 +135,9 @@ public:
     virtual coord::Paths get_mask() const = 0;
 
     /**
-     * Renders the layer to an SVG.
+     * Renders the layer to an SVG layer.
      */
-    virtual void render(Svg &svg, bool flipped, const ColorScheme &colors) const = 0;
+    virtual svg::Layer to_svg(const ColorScheme &colors, bool flipped, const std::string &id_prefix) const = 0;
 
 };
 
@@ -214,6 +173,7 @@ public:
      * Constructs a substrate layer.
      */
     explicit SubstrateLayer(
+        const std::string &name,
         const coord::Paths &shape,
         const coord::Paths &dielectric,
         const coord::Paths &plating,
@@ -226,9 +186,9 @@ public:
     coord::Paths get_mask() const override;
 
     /**
-     * Renders the layer to an SVG.
+     * Renders the layer to an SVG layer.
      */
-    void render(Svg &svg, bool flipped, const ColorScheme &colors) const override;
+    svg::Layer to_svg(const ColorScheme &colors, bool flipped, const std::string &id_prefix) const override;
 
 };
 
@@ -254,6 +214,7 @@ public:
      * Constructs a copper layer.
      */
     CopperLayer(
+        const std::string &name,
         const coord::Paths &board_shape,
         const coord::Paths &copper_layer,
         double thickness
@@ -270,9 +231,9 @@ public:
     const coord::Paths &get_copper() const;
 
     /**
-     * Renders the layer to an SVG.
+     * Renders the layer to an SVG layer.
      */
-    void render(Svg &svg, bool flipped, const ColorScheme &colors) const override;
+    svg::Layer to_svg(const ColorScheme &colors, bool flipped, const std::string &id_prefix) const override;
 
 };
 
@@ -306,6 +267,7 @@ public:
      * Constructs a solder mask.
      */
     MaskLayer(
+        const std::string &name,
         const coord::Paths &board_outline,
         const coord::Paths &mask_layer,
         const coord::Paths &silk_layer,
@@ -318,9 +280,9 @@ public:
     coord::Paths get_mask() const override;
 
     /**
-     * Renders the layer to an SVG.
+     * Renders the layer to an SVG layer.
      */
-    void render(Svg &svg, bool flipped, const ColorScheme &colors) const override;
+    svg::Layer to_svg(const ColorScheme &colors, bool flipped, const std::string &id_prefix) const override;
 
 };
 
@@ -374,6 +336,12 @@ private:
      * Layers that constitute the board.
      */
     std::list<LayerRef> layers;
+
+    /**
+     * The total number of substrate layers added thus far, used for generating
+     * unique layer IDs.
+     */
+    size_t num_substrate_layers;
 
     /**
      * Returns an open file input stream for the given filename.
@@ -434,9 +402,20 @@ public:
     void add_surface_finish();
 
     /**
+     * Returns the axis-aligned boundary coordinates of the PCB.
+     */
+    coord::CRect get_bounds() const;
+
+    /**
+     * Renders the circuit board to SVG, returning only the body of it, allowing it
+     * to be composited into a larger image.
+     */
+    std::string get_svg(bool flipped, const ColorScheme &colors, const std::string &id_prefix="") const;
+
+    /**
      * Renders the circuit board to an SVG.
      */
-    void write_svg(const std::string &fname, double scale=1.0, const ColorScheme &colors={});
+    void write_svg(const std::string &fname, bool flipped=false, double scale=1.0, const ColorScheme &colors={}) const;
 
 };
 

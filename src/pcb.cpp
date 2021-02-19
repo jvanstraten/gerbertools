@@ -53,88 +53,16 @@ ColorScheme::ColorScheme(
 {}
 
 /**
- * Starts rendering an SVG with the given filename, PCB bounds in
- * millimeter, and SVG units per millimeter.
- */
-Svg::Svg(
-    const std::string &fname,
-    const coord::CRect &bounds,
-    double scale
-) : f(fname), bounds(bounds), scale(scale) {
-    if (!f.is_open()) {
-        throw std::runtime_error("failed to open " + fname + " for writing");
-    }
-    width = coord::Format::to_mm(2 * (bounds.right - bounds.left)) * scale;
-    height = coord::Format::to_mm(bounds.top - bounds.bottom) * scale;
-    f << "<svg width=\"" << width << "\" height=\"" << height << "\" ";
-    f << "xmlns=\"http://www.w3.org/2000/svg\">)\n)";
-    f << R"(<defs><filter id="f1"><feGaussianBlur in="SourceGraphic" stdDeviation=")" << scale << R"(" /></filter></defs>)" << "\n";
-    /*f << R"(<path fill="mediumturquoise" d=")";
-    f << "M " << 0 << " " << 0 << " ";
-    f << "L " << width << " " << 0 << " ";
-    f << "L " << width << " " << height << " ";
-    f << "L " << 0 << " " << height << " ";
-    f << R"(" />)" << "\n";*/
-}
-
-/**
- * Destroys this SVG writer, finishing the SVG first.
- */
-Svg::~Svg() {
-    close();
-}
-
-/**
- * Draws a path to the SVG. If the color is fully clear, the path is
- * omitted.
- */
-void Svg::draw(coord::Paths paths, bool flipped, color::Color color, bool blurred) {
-    if (color.a == 0.0) return;
-
-    f << "<path fill=\"rgb(";
-    f << (int)(color.r*255) << ",";
-    f << (int)(color.g*255) << ",";
-    f << (int)(color.b*255);
-    f << ")\" fill-opacity=\"" << color.a << "\" ";
-    if (blurred) {
-        f << "filter=\"url(#f1)\" ";
-    }
-    f << "d=\"";
-    for (const auto &p : paths) {
-        if (flipped) {
-            f << "M " << width - coord::Format::to_mm(p.back().X - bounds.left) * scale;
-        } else {
-            f << "M " << coord::Format::to_mm(p.back().X - bounds.left) * scale;
-        }
-        f << " " << coord::Format::to_mm(bounds.top - p.back().Y) * scale;
-        f << " ";
-        for (const auto &c : p) {
-            if (flipped) {
-                f << "L " << width - coord::Format::to_mm(c.X - bounds.left) * scale;
-            } else {
-                f << "L " << coord::Format::to_mm(c.X - bounds.left) * scale;
-            }
-            f << " " << coord::Format::to_mm(bounds.top - c.Y) * scale;
-            f << " ";
-        }
-    }
-    f << "\"/>\n";
-}
-
-/**
- * Finishes writing the SVG.
- */
-void Svg::close() {
-    if (f.is_open()) {
-        f << R"(</svg>)" << std::endl;
-        f.close();
-    }
-}
-
-/**
  * Constructs a layer.
  */
-Layer::Layer(double thickness) : thickness(thickness) {
+Layer::Layer(const std::string &name, double thickness) : name(name), thickness(thickness) {
+}
+
+/**
+ * Returns a name for the layer.
+ */
+std::string Layer::get_name() const {
+    return name;
 }
 
 /**
@@ -148,11 +76,12 @@ double Layer::get_thickness() const {
  * Constructs a substrate layer.
  */
 SubstrateLayer::SubstrateLayer(
+    const std::string &name,
     const coord::Paths &shape,
     const coord::Paths &dielectric,
     const coord::Paths &plating,
     double thickness
-) : Layer(thickness), shape(shape), dielectric(dielectric), plating(plating) {
+) : Layer(name, thickness), shape(shape), dielectric(dielectric), plating(plating) {
 }
 
 /**
@@ -163,21 +92,24 @@ coord::Paths SubstrateLayer::get_mask() const {
 }
 
 /**
- * Renders the layer to an SVG.
+ * Renders the layer to an SVG layer.
  */
-void SubstrateLayer::render(Svg &svg, bool flipped, const ColorScheme &colors) const {
-    svg.draw(dielectric, flipped, colors.substrate);
-    svg.draw(plating, flipped, colors.finish);
+svg::Layer SubstrateLayer::to_svg(const ColorScheme &colors, bool flipped, const std::string &id_prefix) const {
+    auto layer = svg::Layer(id_prefix + get_name());
+    layer.add(dielectric, colors.substrate);
+    layer.add(plating, colors.finish);
+    return layer;
 }
 
 /**
  * Constructs a copper layer.
  */
 CopperLayer::CopperLayer(
+    const std::string &name,
     const coord::Paths &board_shape,
     const coord::Paths &copper_layer,
     double thickness
-) : Layer(thickness) {
+) : Layer(name, thickness) {
     layer = copper_layer;
     copper = path::intersect(board_shape, copper_layer);
 }
@@ -197,24 +129,26 @@ const coord::Paths &CopperLayer::get_copper() const {
 }
 
 /**
- * Renders the layer to an SVG.
+ * Renders the layer to an SVG layer.
  */
-void CopperLayer::render(Svg &svg, bool flipped, const ColorScheme &colors) const {
-    svg.draw(copper, flipped, colors.copper);
+svg::Layer CopperLayer::to_svg(const ColorScheme &colors, bool flipped, const std::string &id_prefix) const {
+    auto layer = svg::Layer(id_prefix + get_name());
+    layer.add(copper, colors.copper);
+    return layer;
 }
 
 /**
  * Constructs a solder mask.
  */
 MaskLayer::MaskLayer(
+    const std::string &name,
     const coord::Paths &board_outline,
     const coord::Paths &mask_layer,
     const coord::Paths &silk_layer,
     bool bottom
-) : Layer(0.01) {
+) : Layer(name, 0.01), bottom(bottom) {
     mask = path::subtract(board_outline, mask_layer);
     silk = path::intersect(mask, silk_layer);
-    bottom = bottom;
 }
 
 /**
@@ -225,16 +159,18 @@ coord::Paths MaskLayer::get_mask() const {
 }
 
 /**
- * Renders the layer to an SVG.
+ * Renders the layer to an SVG layer.
  */
-void MaskLayer::render(Svg &svg, bool flipped, const ColorScheme &colors) const {
+svg::Layer MaskLayer::to_svg(const ColorScheme &colors, bool flipped, const std::string &id_prefix) const {
+    auto layer = svg::Layer(id_prefix + get_name());
     if (bottom == flipped) {
-        svg.draw(silk, flipped, colors.silkscreen);
-        svg.draw(mask, flipped, colors.soldermask);
+        layer.add(mask, colors.soldermask);
+        layer.add(silk, colors.silkscreen);
     } else {
-        svg.draw(mask, flipped, colors.soldermask);
-        svg.draw(silk, flipped, colors.silkscreen);
+        layer.add(silk, colors.silkscreen);
+        layer.add(mask, colors.soldermask);
     }
+    return layer;
 }
 
 /**
@@ -311,7 +247,7 @@ CircuitBoard::CircuitBoard(
     const std::string &drill_nonplated,
     const std::string &mill,
     double plating_thickness
-) : basename(basename) {
+) : basename(basename), num_substrate_layers(0) {
 
     // Load board outline.
     board_outline = read_gerber(outline, true);
@@ -342,7 +278,7 @@ CircuitBoard::CircuitBoard(
  */
 void CircuitBoard::add_mask_layer(const std::string &mask, const std::string &silk) {
     layers.push_back(std::make_shared<MaskLayer>(
-        board_outline, read_gerber(mask), read_gerber(silk), layers.empty()
+        "mask" + mask, board_outline, read_gerber(mask), read_gerber(silk), layers.empty()
     ));
 }
 
@@ -351,7 +287,7 @@ void CircuitBoard::add_mask_layer(const std::string &mask, const std::string &si
  */
 void CircuitBoard::add_copper_layer(const std::string &gerber, double thickness) {
     layers.push_back(std::make_shared<CopperLayer>(
-        board_shape, read_gerber(gerber), thickness
+        "copper" + gerber, board_shape, read_gerber(gerber), thickness
     ));
 }
 
@@ -360,7 +296,7 @@ void CircuitBoard::add_copper_layer(const std::string &gerber, double thickness)
  */
 void CircuitBoard::add_substrate_layer(double thickness) {
     layers.push_back(std::make_shared<SubstrateLayer>(
-        board_shape, substrate_dielectric, substrate_plating, thickness
+        "substrate" + std::to_string(++num_substrate_layers), board_shape, substrate_dielectric, substrate_plating, thickness
     ));
 }
 
@@ -389,13 +325,9 @@ void CircuitBoard::add_surface_finish() {
 }
 
 /**
- * Renders the circuit board to an SVG.
+ * Returns the axis-aligned boundary coordinates of the PCB.
  */
-void CircuitBoard::write_svg(
-    const std::string &fname,
-    double scale,
-    const ColorScheme &colors
-) {
+coord::CRect CircuitBoard::get_bounds() const {
     coord::CRect bounds;
     bounds.left = bounds.bottom = INT64_MAX;
     bounds.right = bounds.top = INT64_MIN;
@@ -407,21 +339,60 @@ void CircuitBoard::write_svg(
             bounds.top = std::max(bounds.top, point.Y);
         }
     }
-    bounds.left -= coord::Format::from_mm(10.0);
-    bounds.right += coord::Format::from_mm(5.0);
-    bounds.bottom -= coord::Format::from_mm(10.0);
-    bounds.top += coord::Format::from_mm(10.0);
-    Svg svg{fname, bounds, scale};
-    svg.draw(board_shape, false, {0.0f, 0.0f, 0.0f, 0.2f}, true);
-    for (auto it = layers.begin(); it != layers.end(); ++it) {
-        (*it)->render(svg, false, colors);
+    return bounds;
+}
+
+/**
+ * Renders the circuit board to SVG, returning only the body of it, allowing it
+ * to be composited into a larger image.
+ */
+std::string CircuitBoard::get_svg(bool flipped, const ColorScheme &colors, const std::string &id_prefix) const {
+    std::ostringstream ss;
+
+    if (flipped) {
+        for (auto it = layers.rbegin(); it != layers.rend(); ++it) {
+            ss << (*it)->to_svg(colors, flipped, id_prefix);
+        }
+    } else {
+        for (auto it = layers.begin(); it != layers.end(); ++it) {
+            ss << (*it)->to_svg(colors, flipped, id_prefix);
+        }
     }
-    svg.draw(top_finish, false, colors.finish, false);
-    svg.draw(board_shape, true, {0.0f, 0.0f, 0.0f, 0.2f}, true);
-    for (auto it = layers.rbegin(); it != layers.rend(); ++it) {
-        (*it)->render(svg, true, colors);
-    }
-    svg.draw(bottom_finish, true, colors.finish, false);
+
+    auto finish = svg::Layer(id_prefix + "finish");
+    finish.add(flipped ? bottom_finish : top_finish, colors.finish);
+    ss << finish;
+
+    return ss.str();
+}
+
+/**
+ * Renders the circuit board to an SVG.
+ */
+void CircuitBoard::write_svg(
+    const std::string &fname,
+    bool flipped,
+    double scale,
+    const ColorScheme &colors
+) const {
+    auto bounds = get_bounds();
+
+    auto width = bounds.right - bounds.left + coord::Format::from_mm(20.0);
+    auto height = bounds.top - bounds.bottom + coord::Format::from_mm(20.0);
+    svg::File svg{fname, {0, 0, width, height}, scale};
+
+    std::ostringstream strm;
+    auto tx = coord::Format::from_mm(10.0) - (flipped ? -bounds.right : bounds.left);
+    auto ty = coord::Format::from_mm(10.0) + bounds.top;
+    strm << "<g transform=\"";
+    strm << "translate(" << coord::Format::to_mm(tx) << " " << coord::Format::to_mm(ty) << ") ";
+    strm << "scale(" << (flipped ? "-1" : "1") << " -1) ";
+    strm << "\" filter=\"drop-shadow(0 0 1 rgba(0, 0, 0, 0.2))\">\n";
+    svg.add(strm.str());
+
+    svg << get_svg(flipped, colors);
+
+    svg << "</g>\n";
 }
 
 } // namespace pcb
