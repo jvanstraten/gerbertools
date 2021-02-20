@@ -27,7 +27,7 @@ Work in progress.
    that does this in a way that includes the copper traces, soldermask, and
    silkscreen.
 
- - ` ` Ability to perform basic unconnected net, short circuit, and net clearance
+ - `x` Ability to perform basic unconnected net, short circuit, and net clearance
    DRC. Clearance will be done by "growing" all polygons by half the clearance
    and then doing a short circuit check, which means that the clearance value
    is global; you can't set it per net.
