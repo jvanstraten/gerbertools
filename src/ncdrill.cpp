@@ -56,6 +56,32 @@ bool Tool::is_plated() const {
 }
 
 /**
+ * Constructs a new via.
+ */
+Via::Via(
+    coord::Path path,
+    coord::CInt finished_hole_size
+) :
+    path(path),
+    finished_hole_size(finished_hole_size)
+{}
+
+/**
+ * Returns the path that the drill took to make the via. For most vias this
+ * will be a single point, but plated slots are possible this way.
+ */
+coord::Path Via::get_path() const {
+    return path;
+}
+
+/**
+ * Returns the size of the finished hole.
+ */
+coord::CInt Via::get_finished_hole_size() const {
+    return finished_hole_size;
+}
+
+/**
  * Commits the path in the path field to the plots and to vias based on the
  * current tool.
  */
@@ -65,7 +91,7 @@ void NCDrill::commit_path() {
     }
     if (tool->is_plated()) {
         plot_pth.draw_paths(path::render({{path}}, tool->get_diameter(), false, fmt.build_clipper_offset()));
-        vias.insert(vias.end(), path.begin(), path.end());
+        vias.emplace_back(path, tool->get_diameter());
     } else {
         plot_npth.draw_paths(path::render({{path}}, tool->get_diameter(), false, fmt.build_clipper_offset()));
     }
@@ -475,7 +501,7 @@ coord::Paths NCDrill::get_paths(bool plated, bool unplated) const {
 /**
  * Returns the center coordinates of all plated holes.
  */
-const std::list<coord::CPt> &NCDrill::get_vias() const {
+const std::list<Via> &NCDrill::get_vias() const {
     return vias;
 }
 

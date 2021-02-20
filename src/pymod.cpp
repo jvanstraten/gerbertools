@@ -215,6 +215,25 @@ color::Color tuple_to_color(const Color &c) {
     return {std::get<0>(c), std::get<1>(c), std::get<2>(c), std::get<3>(c)};
 }
 
+class Netlist {
+private:
+    netlist::Netlist nl;
+    coord::CInt annular_ring;
+public:
+
+    Netlist() {
+        throw std::runtime_error("Netlists cannot be constructed directly. Use CircuitBoard.build_netlist() instead.");
+    }
+
+    Netlist(netlist::Netlist &&nl, coord::CInt annular_ring) : nl(std::move(nl)), annular_ring(annular_ring) {
+    }
+
+    std::list<std::string> drc() {
+        return nl.perform_drc(annular_ring);
+    }
+
+};
+
 class CircuitBoard {
 private:
     pcb::CircuitBoard pcb;
@@ -243,6 +262,19 @@ public:
 
     void add_surface_finish() {
         pcb.add_surface_finish();
+    }
+
+    Netlist build_netlist(const std::list<std::tuple<std::tuple<double, double>, int, std::string>> &nets, double clearance, double annular_ring) {
+        auto nb = pcb.get_netlist_builder();
+        for (const auto &net : nets) {
+            auto coord = std::get<0>(net);
+            auto layer = std::get<1>(net);
+            auto name = std::get<2>(net);
+            auto x = coord::Format::from_mm(std::get<0>(coord));
+            auto y = coord::Format::from_mm(std::get<1>(coord));
+            nb.net({x, y}, layer, name);
+        }
+        return Netlist(nb.build(coord::Format::from_mm(clearance)), coord::Format::from_mm(annular_ring));
     }
 
     std::tuple<double, double, double, double> get_bounds() {
@@ -323,6 +355,9 @@ PYBIND11_MODULE(_gerbertools, m) {
         .def("intersect", &Shape::intersect, "Computes the intersection of two shapes.")
         .def("__and__", &Shape::intersect, "Computes the intersection of two shapes.");
 
+    py::class_<Netlist>(m, "Netlist", "A representation of the copper part of a circuit board and its relationship with the logical netlist.")
+        .def("drc", &Netlist::drc, "Runs a design-rule check. Returns a list of violation messages. If the list is empty, the DRC passed.");
+
     py::class_<CircuitBoard>(m, "CircuitBoard", "A complete circuit board.")
         .def(py::init<std::string, std::string, std::string, std::string, std::string, double>(),
             py::arg("basename"),
@@ -344,6 +379,7 @@ PYBIND11_MODULE(_gerbertools, m) {
         .def("add_copper_layer", &CircuitBoard::add_copper_layer, py::arg("copper"), py::arg("thickness")=pcb::COPPER_OZ, "Adds a copper layer. Layers are added bottom-up.")
         .def("add_substrate_layer", &CircuitBoard::add_substrate_layer, py::arg("thickness")=1.5, "Adds a substrate layer. Layers are added bottom-up.")
         .def("add_surface_finish", &CircuitBoard::add_surface_finish, "Derives the surface finish layer for all exposed copper. Call after adding all layers.")
+        .def("build_netlist", &CircuitBoard::build_netlist, py::arg("nets"), py::arg("clearance")=0.0, py::arg("annular_ring")=0.0, "Builds a netlist from the PCB and the given list of coordinate, layer index, and net name tuples.")
         .def("get_bounds", &CircuitBoard::get_bounds, "Returns the axis-aligned bounds of the PCB in millimeters, ordered left, top, right, bottom.")
         .def("get_svg", &CircuitBoard::get_svg,
              py::arg("flipped")=false,

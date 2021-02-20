@@ -28,7 +28,6 @@
  */
 
 #include "gerbertools/gerber.hpp"
-#include "gerbertools/ncdrill.hpp"
 #include "gerbertools/pcb.hpp"
 #include "gerbertools/path.hpp"
 
@@ -107,11 +106,13 @@ svg::Layer SubstrateLayer::to_svg(const ColorScheme &colors, bool flipped, const
 CopperLayer::CopperLayer(
     const std::string &name,
     const coord::Paths &board_shape,
+    const coord::Paths &board_shape_excl_pth,
     const coord::Paths &copper_layer,
     double thickness
 ) : Layer(name, thickness) {
     layer = copper_layer;
     copper = path::intersect(board_shape, copper_layer);
+    copper_excl_pth = path::intersect(board_shape_excl_pth, copper_layer);
 }
 
 /**
@@ -126,6 +127,21 @@ coord::Paths CopperLayer::get_mask() const {
  */
 const coord::Paths &CopperLayer::get_copper() const {
     return copper;
+}
+
+/**
+ * Returns the copper for this layer, with only cutouts for board shape and
+ * non-plated holes, not for plated holes. This is needed for annular ring DRC.
+ */
+const coord::Paths &CopperLayer::get_copper_excl_pth() const {
+    return copper_excl_pth;
+}
+
+/**
+ * Returns the original layer, without board outline intersection.
+ */
+const coord::Paths &CopperLayer::get_layer() const {
+    return layer;
 }
 
 /**
@@ -221,11 +237,11 @@ void CircuitBoard::read_drill(const std::string &fname, bool plated, coord::Path
     if (npth.empty()) {
         npth = l;
     } else {
-        pth.insert(pth.end(), l.begin(), l.end());
-        ClipperLib::SimplifyPolygons(pth);
+        npth.insert(npth.end(), l.begin(), l.end());
+        ClipperLib::SimplifyPolygons(npth);
     }
-    auto vias = d.get_vias();
-    via_points.insert(via_points.end(), vias.begin(), vias.end());
+    auto new_vias = d.get_vias();
+    vias.insert(vias.end(), new_vias.begin(), new_vias.end());
 }
 
 /**
@@ -247,7 +263,7 @@ CircuitBoard::CircuitBoard(
     const std::string &drill_nonplated,
     const std::string &mill,
     double plating_thickness
-) : basename(basename), num_substrate_layers(0) {
+) : basename(basename), num_substrate_layers(0), plating_thickness(coord::Format::from_mm(plating_thickness)) {
 
     // Load board outline.
     board_outline = read_gerber(outline, true);
@@ -263,9 +279,10 @@ CircuitBoard::CircuitBoard(
     // Make board shape.
     auto holes = path::add(pth, npth);
     board_shape = path::subtract(board_outline, holes);
+    board_shape_excl_pth = path::subtract(board_outline, npth);
 
     // Build plating.
-    coord::Paths pth_drill = path::offset(pth, coord::Format::from_mm(plating_thickness), true);
+    coord::Paths pth_drill = path::offset(pth, this->plating_thickness, true);
 
     // Make substrate shape.
     substrate_dielectric = path::subtract(board_outline, path::add(pth_drill, npth));
@@ -287,7 +304,7 @@ void CircuitBoard::add_mask_layer(const std::string &mask, const std::string &si
  */
 void CircuitBoard::add_copper_layer(const std::string &gerber, double thickness) {
     layers.push_back(std::make_shared<CopperLayer>(
-        "copper" + gerber, board_shape, read_gerber(gerber), thickness
+        "copper" + gerber, board_shape, board_shape_excl_pth, read_gerber(gerber), thickness
     ));
 }
 
@@ -322,6 +339,49 @@ void CircuitBoard::add_surface_finish() {
         }
         mask = path::add(mask, (*it)->get_mask());
     }
+}
+
+/**
+ * Returns a netlist builder initialized with the vias and copper regions of
+ * this PCB.
+ */
+netlist::NetlistBuilder CircuitBoard::get_netlist_builder() const {
+    netlist::NetlistBuilder nb;
+    for (const auto &layer : layers) {
+        auto copper = std::dynamic_pointer_cast<CopperLayer>(layer);
+        if (copper) {
+            nb.layer(copper->get_copper_excl_pth());
+        }
+    }
+    for (const auto &via : vias) {
+        nb.via(via.get_path(), via.get_finished_hole_size(), plating_thickness);
+    }
+    return nb;
+}
+
+/**
+ * Returns the physical netlist for this PCB.
+ */
+netlist::PhysicalNetlist CircuitBoard::get_physical_netlist() const {
+    netlist::PhysicalNetlist pn;
+    size_t layer_index = 0;
+    for (const auto &layer : layers) {
+        auto copper = std::dynamic_pointer_cast<CopperLayer>(layer);
+        if (copper) {
+            pn.register_paths(copper->get_copper_excl_pth(), layer_index++);
+        }
+    }
+    for (const auto &via : vias) {
+        pn.register_via(
+            std::make_shared<netlist::Via>(
+                via.get_path(),
+                via.get_finished_hole_size(),
+                plating_thickness
+            ),
+            layer_index
+        );
+    }
+    return pn;
 }
 
 /**

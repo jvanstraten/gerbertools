@@ -35,6 +35,8 @@
 #include "gerbertools/coord.hpp"
 #include "gerbertools/color.hpp"
 #include "gerbertools/svg.hpp"
+#include "gerbertools/netlist.hpp"
+#include "gerbertools/ncdrill.hpp"
 
 namespace gerbertools {
 
@@ -204,9 +206,15 @@ private:
     coord::Paths layer;
 
     /**
-     * Actual shape of the copper. That is, layer minus board outline.
+     * Actual shape of the copper. That is, layer minus board outline and all
+     * finished holes.
      */
     coord::Paths copper;
+
+    /**
+     * As above, but without cutouts for plated holes.
+     */
+    coord::Paths copper_excl_pth;
 
 public:
 
@@ -216,6 +224,7 @@ public:
     CopperLayer(
         const std::string &name,
         const coord::Paths &board_shape,
+        const coord::Paths &board_shape_excl_pth,
         const coord::Paths &copper_layer,
         double thickness
     );
@@ -229,6 +238,17 @@ public:
      * Returns the copper for this layer.
      */
     const coord::Paths &get_copper() const;
+
+    /**
+     * Returns the copper for this layer, with only cutouts for board shape and
+     * non-plated holes, not for plated holes. This is needed for annular ring DRC.
+     */
+    const coord::Paths &get_copper_excl_pth() const;
+
+    /**
+     * Returns the original layer, without board outline intersection.
+     */
+    const coord::Paths &get_layer() const;
 
     /**
      * Renders the layer to an SVG layer.
@@ -308,6 +328,12 @@ private:
     coord::Paths board_shape;
 
     /**
+     * The board shape, with cutouts for non-plated holes, but not for plated
+     * holes/vias.
+     */
+    coord::Paths board_shape_excl_pth;
+
+    /**
      * The board outline, minus holes before plating.
      */
     coord::Paths substrate_dielectric;
@@ -330,7 +356,12 @@ private:
     /**
      * Points representing vias.
      */
-    std::list<coord::CPt> via_points;
+    std::list<ncdrill::Via> vias;
+
+    /**
+     * Plating thickness for vias.
+     */
+    coord::CInt plating_thickness;
 
     /**
      * Layers that constitute the board.
@@ -400,6 +431,17 @@ public:
      * Derives the surface finish layer for all exposed copper.
      */
     void add_surface_finish();
+
+    /**
+     * Returns a netlist builder initialized with the vias and copper regions of
+     * this PCB.
+     */
+    netlist::NetlistBuilder get_netlist_builder() const;
+
+    /**
+     * Returns the physical netlist for this PCB.
+     */
+    netlist::PhysicalNetlist get_physical_netlist() const;
 
     /**
      * Returns the axis-aligned boundary coordinates of the PCB.

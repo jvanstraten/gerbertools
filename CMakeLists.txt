@@ -15,6 +15,7 @@ add_library(gerbertools_objlib OBJECT
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ncdrill.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/svg.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/pcb.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/netlist.cpp
 )
 set_property(
     TARGET gerbertools_objlib
