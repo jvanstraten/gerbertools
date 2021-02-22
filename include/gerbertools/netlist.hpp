@@ -592,6 +592,20 @@ public:
      */
     std::list<std::string> perform_drc(coord::CInt annular_ring) const;
 
+    /**
+     * Returns the physical nets in the netlist. That is, the pieces of
+     * connected copper and their shape, as well as references to the logical
+     * nets they are connected to (if they are electrically connected to
+     * anything but themselves at all).
+     */
+    const PhysicalNetlist &get_physical_netlist() const;
+
+    /**
+     * Returns the map from logical netname (as in from the circuit) to objects
+     * that store which physical nets are mapped to them.
+     */
+    const std::map<std::string, LogicalNetRef> &get_logical_netlist() const;
+
 };
 
 } // namespace netlist

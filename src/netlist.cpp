@@ -143,13 +143,6 @@ Shape::Shape(
         bounding_box.right = std::max(bounding_box.right, coord.X);
         bounding_box.top = std::max(bounding_box.top, coord.Y);
     }
-    /*for (const auto &hole : holes) {
-        for (const auto &coord : hole) {
-            if (!contains(coord)) {
-                throw std::logic_error("hole coordinate not within outer coordinate");
-            }
-        }
-    }*/
 }
 
 /**
@@ -695,6 +688,24 @@ std::list<std::string> Netlist::perform_drc(coord::CInt annular_ring) const {
     }
 
     return violations;
+}
+
+/**
+ * Returns the physical nets in the netlist. That is, the pieces of
+ * connected copper and their shape, as well as references to the logical
+ * nets they are connected to (if they are electrically connected to
+ * anything but themselves at all).
+ */
+const PhysicalNetlist &Netlist::get_physical_netlist() const {
+    return connected_netlist;
+}
+
+/**
+ * Returns the map from logical netname (as in from the circuit) to objects
+ * that store which physical nets are mapped to them.
+ */
+const std::map<std::string, LogicalNetRef> &Netlist::get_logical_netlist() const {
+    return logical_nets;
 }
 
 } // namespace netlist

@@ -22,7 +22,7 @@ Work in progress.
    not usually to other vector formats), but very important for developing
    this actual library.
 
- - ` ` Ability to export to OBJ files or something similar for nice 3D models of
+ - `x` Ability to export to OBJ files or something similar for nice 3D models of
    circuit boards that don't care about poly count; I've yet to find a tool
    that does this in a way that includes the copper traces, soldermask, and
    silkscreen.

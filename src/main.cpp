@@ -43,7 +43,8 @@ int main(int argc, char *argv[]) {
     pcb.add_copper_layer(".GTL");
     pcb.add_mask_layer(".GTS", ".GTO");
     pcb.add_surface_finish();
-    pcb.write_svg("gfsdfds.svg", false, 20, {color::MASK_WHITE, color::SILK_BLACK});*/
+    pcb.write_svg("gfsdfds.svg", false, 20, {color::MASK_WHITE, color::SILK_BLACK});
+    pcb.write_obj("gfsdfds.obj");*/
 
 
     /*pcb::CircuitBoard pcb("/mnt/d/Jeroen/hobby/clock/components/cross/output/", "gbr.GM4", "ncd.TXT", "", "gbr.GM3");
@@ -70,12 +71,13 @@ int main(int argc, char *argv[]) {
     pcb.add_copper_layer(".GTL");
     pcb.add_mask_layer(".GTS", ".GTO");
     pcb.add_surface_finish();
-    //pcb.write_svg("/mnt/d/Jeroen/hobby/clock/gated-clock/kek.svg", true, 20, {color::MASK_WHITE, color::SILK_BLACK});
+    //pcb.write_svg("/mnt/d/Jeroen/hobby/clock/gated-clock/kek.svg", true, 20, {color::MASK_WHITE, color::SILK_BLACK});*/
+    pcb.write_obj("gfsdfds.obj");
 
-    auto violations = pcb.get_netlist_builder().build(coord::Format::from_mm(0.13)).perform_drc(coord::Format::from_mm(0.13));
+    /*auto violations = pcb.get_netlist_builder().build(coord::Format::from_mm(0.13)).perform_drc(coord::Format::from_mm(0.13));
     for (const auto &violation : violations) {
         std::cout << violation << std::endl;
-    }
+    }*/
 
     /*std::ifstream f("/mnt/e/git/DARE subrepos/projects/stratos2plus/orders/2015-06-16/fts/fts.GBL");
     //std::ifstream f("O100030117 10by10 Green 1.6mm HASL 10pcs/mcu.GTL");

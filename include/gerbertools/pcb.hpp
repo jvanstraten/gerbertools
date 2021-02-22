@@ -35,6 +35,7 @@
 #include "gerbertools/coord.hpp"
 #include "gerbertools/color.hpp"
 #include "gerbertools/svg.hpp"
+#include "gerbertools/obj.hpp"
 #include "gerbertools/netlist.hpp"
 #include "gerbertools/ncdrill.hpp"
 
@@ -141,6 +142,11 @@ public:
      */
     virtual svg::Layer to_svg(const ColorScheme &colors, bool flipped, const std::string &id_prefix) const = 0;
 
+    /**
+     * Renders the layer to an OBJ file.
+     */
+    virtual void to_obj(obj::ObjFile &obj, size_t layer_index, double z, const std::string &id_prefix) const = 0;
+
 };
 
 /**
@@ -191,6 +197,11 @@ public:
      * Renders the layer to an SVG layer.
      */
     svg::Layer to_svg(const ColorScheme &colors, bool flipped, const std::string &id_prefix) const override;
+
+    /**
+     * Renders the layer to an OBJ file.
+     */
+    void to_obj(obj::ObjFile &obj, size_t layer_index, double z, const std::string &id_prefix) const override;
 
 };
 
@@ -255,6 +266,11 @@ public:
      */
     svg::Layer to_svg(const ColorScheme &colors, bool flipped, const std::string &id_prefix) const override;
 
+    /**
+     * Renders the layer to an OBJ file.
+     */
+    void to_obj(obj::ObjFile &obj, size_t layer_index, double z, const std::string &id_prefix) const override;
+
 };
 
 /**
@@ -303,6 +319,11 @@ public:
      * Renders the layer to an SVG layer.
      */
     svg::Layer to_svg(const ColorScheme &colors, bool flipped, const std::string &id_prefix) const override;
+
+    /**
+     * Renders the layer to an OBJ file.
+     */
+    void to_obj(obj::ObjFile &obj, size_t layer_index, double z, const std::string &id_prefix) const override;
 
 };
 
@@ -458,6 +479,13 @@ public:
      * Renders the circuit board to an SVG.
      */
     void write_svg(const std::string &fname, bool flipped=false, double scale=1.0, const ColorScheme &colors={}) const;
+
+    /**
+     * Renders the circuit board to a Wavefront OBJ file. Optionally, a netlist
+     * can be supplied, of which the logical net names will then be used to
+     * name the copper objects.
+     */
+    void write_obj(const std::string &fname, const netlist::Netlist *netlist = nullptr) const;
 
 };
 

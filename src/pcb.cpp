@@ -27,6 +27,8 @@
  * reconstructed from Gerber files and an NC drill file.
  */
 
+#define _USE_MATH_DEFINES
+#include <cmath>
 #include "gerbertools/gerber.hpp"
 #include "gerbertools/pcb.hpp"
 #include "gerbertools/path.hpp"
@@ -101,6 +103,20 @@ svg::Layer SubstrateLayer::to_svg(const ColorScheme &colors, bool flipped, const
 }
 
 /**
+ * Renders the layer to an OBJ file.
+ */
+void SubstrateLayer::to_obj(obj::ObjFile &obj, size_t layer_index, double z, const std::string &id_prefix) const {
+    obj.add_object(
+        "layer" + std::to_string(layer_index) + "_" + get_name(),
+        "substrate"
+    ).add_sheet(
+        dielectric,
+        z,
+        z + get_thickness()
+    );
+}
+
+/**
  * Constructs a copper layer.
  */
 CopperLayer::CopperLayer(
@@ -154,6 +170,14 @@ svg::Layer CopperLayer::to_svg(const ColorScheme &colors, bool flipped, const st
 }
 
 /**
+ * Renders the layer to an OBJ file.
+ */
+void CopperLayer::to_obj(obj::ObjFile &obj, size_t layer_index, double z, const std::string &id_prefix) const {
+    // No-operation. Copper is added via the physical netlist, such that each
+    // bit of connected copper gets its own object.
+}
+
+/**
  * Constructs a solder mask.
  */
 MaskLayer::MaskLayer(
@@ -187,6 +211,46 @@ svg::Layer MaskLayer::to_svg(const ColorScheme &colors, bool flipped, const std:
         layer.add(mask, colors.soldermask);
     }
     return layer;
+}
+
+/**
+ * Renders the layer to an OBJ file.
+ */
+void MaskLayer::to_obj(obj::ObjFile &obj, size_t layer_index, double z, const std::string &id_prefix) const {
+    double mask_z1, mask_z2, silk_z;
+    std::string mask_name, silk_name;
+    if (bottom) {
+        mask_name = "_GBS";
+        silk_name = "_GBO";
+        silk_z = z;
+    } else {
+        mask_name = "_GTS";
+        silk_name = "_GTO";
+        silk_z = z + get_thickness();
+    }
+
+    // The soldermask is probably transparent, which makes Z-fighting a
+    // potential issue. Just work around it by making the soldermask slightly
+    // thinner than it should be. The same applies for the silkscreen layer,
+    // which is modelled without thickness.
+    mask_z1 = z + get_thickness() * 0.01;
+    mask_z2 = z + get_thickness() * 0.99;
+
+    obj.add_object(
+        "layer" + std::to_string(layer_index) + mask_name,
+        "soldermask"
+    ).add_sheet(
+        mask,
+        mask_z1,
+        mask_z2
+    );
+    obj.add_object(
+        "layer" + std::to_string(layer_index) + silk_name,
+        "silkscreen"
+    ).add_surface(
+        silk,
+        silk_z
+    );
 }
 
 /**
@@ -453,6 +517,163 @@ void CircuitBoard::write_svg(
     svg << get_svg(flipped, colors);
 
     svg << "</g>\n";
+}
+
+/**
+ * Generates a path that approximates a circle of the given size with the given
+ * center point.
+ */
+static void render_circle(coord::CPt center, coord::CInt diameter, coord::Path &output) {
+    double epsilon = coord::Format().get_max_deviation();
+    double r = diameter * 0.5;
+    double x = (r > epsilon) ? (1.0 - epsilon / r) : 0.0;
+    double th = std::acos(2.0 * x * x - 1.0) + 1e-3;
+    auto n_vertices = (size_t)std::ceil(2.0 * M_PI / th);
+    if (n_vertices < 3) n_vertices = 3;
+    output.clear();
+    output.reserve(n_vertices);
+    for (size_t i = 0; i < n_vertices; i++) {
+        auto a = 2.0 * M_PI * i / n_vertices;
+        output.emplace_back(
+            center.X + (coord::CInt)std::round(std::cos(a) * r),
+            center.Y + (coord::CInt)std::round(std::sin(a) * r)
+        );
+    }
+}
+
+/**
+ * Adds named copper shapes to the given Wavefront OBJ file manager.
+ */
+static void render_copper(
+    obj::ObjFile &obj,
+    const netlist::PhysicalNetlist &netlist,
+    const std::vector<std::pair<double, double>> &copper_z
+) {
+    size_t name_counter = 1;
+    for (const auto &net : netlist.get_nets()) {
+
+        // Figure out a unique name for the copper object.
+        std::string name;
+        if (net->get_logical_nets().empty()) {
+            name = "net_" + std::to_string(name_counter);
+        } else {
+            name = net->get_logical_nets().begin()->lock()->get_name() + "_" + std::to_string(name_counter);
+        }
+        name_counter++;
+        auto &ob = obj.add_object(name, "copper");
+
+        // Enumerate the vias connected to this net.
+        struct Via {
+            coord::CPt center;
+            coord::Path inner;
+            coord::Path outer;
+            size_t lower_layer;
+            size_t upper_layer;
+        };
+        std::vector<Via> vias;
+        vias.reserve(net->get_vias().size());
+        for (const auto &via : net->get_vias()) {
+            auto center = via->get_coordinate();
+            auto diameter = via->get_finished_hole_size();
+            auto lower_layer = via->get_lower_layer(copper_z.size());
+            auto upper_layer = via->get_upper_layer(copper_z.size());
+
+            // Render the inner ring. This goes all the way from the bottom of
+            // the lowest layer to the top of the upper layer.
+            coord::Path inner;
+            render_circle(center, diameter, inner);
+            ob.add_ring(inner, copper_z.at(lower_layer).first, copper_z.at(upper_layer).second);
+
+            // Render the outer rings. There is one for each layer that is
+            // connected by the via, from the top of the lower of the two layers
+            // to the bottom of the top of the two.
+            coord::Path outer;
+            render_circle(center, diameter + 2 * via->get_plating_thickness(), outer);
+            for (size_t layer = lower_layer; layer < upper_layer; layer++) {
+                ob.add_ring(outer, copper_z.at(layer).second, copper_z.at(layer + 1).first);
+            }
+
+            // Everything else consists of flat copper surfaces, along with
+            // their own outline. We store the outer ring for this via in a
+            // record to keep track of these, so we can punch holes in these
+            // surfaces.
+            vias.push_back({center, std::move(inner), std::move(outer), lower_layer, upper_layer});
+
+        }
+
+        // Enumerate and render the planar copper shapes connected to this net.
+        for (const auto &shape : net->get_shapes()) {
+            auto zs = copper_z.at(shape->get_layer());
+
+            // Add the rings.
+            ob.add_ring(shape->get_outline(), zs.first, zs.second);
+            for (const auto &path : shape->get_holes()) {
+                ob.add_ring(path, zs.first, zs.second);
+            }
+
+            // Add the surfaces.
+            for (int side = 0; side < 2; side++) {
+                size_t layer = shape->get_layer();
+
+                // Side 0 is the bottom of the sheet, side 1 is the top.
+                double z = side ? zs.second : zs.first;
+
+                // Figure out the holes in this shape, including those made by
+                // vias.
+                coord::Paths holes = shape->get_holes();
+                for (const auto &via : vias) {
+                    if (layer < via.lower_layer) {
+                        // Via is above this side/layer.
+                        continue;
+                    }
+                    if (layer > via.upper_layer) {
+                        // Via is below this side/layer.
+                        continue;
+                    }
+                    if (!shape->contains(via.center)) {
+                        // Via is in a different part of the PCB in-plane.
+                        continue;
+                    }
+                    // Via punches through this side/layer, so we need to add an
+                    // extra hole for it.
+                    if ((layer == via.lower_layer && side == 0) || (layer == via.upper_layer && side == 1)) {
+                        holes.push_back(via.inner);
+                    } else {
+                        holes.push_back(via.outer);
+                    }
+                }
+
+                // Add the copper surface.
+                ob.add_surface(shape->get_outline(), holes, z);
+
+            }
+        }
+    }
+}
+
+/**
+ * Renders the circuit board to a Wavefront OBJ file. Optionally, a netlist
+ * can be supplied, of which the logical net names will then be used to
+ * name the copper objects.
+ */
+void CircuitBoard::write_obj(const std::string &fname, const netlist::Netlist *netlist) const {
+    obj::ObjFile obj;
+    double z = 0.0;
+    size_t index = 0;
+    std::vector<std::pair<double, double>> copper_z;
+    for (const auto &layer : layers) {
+        layer->to_obj(obj, index++, z, "");
+        if (std::dynamic_pointer_cast<CopperLayer>(layer)) {
+            copper_z.emplace_back(z, z + layer->get_thickness());
+        }
+        z += layer->get_thickness();
+    }
+    if (netlist != nullptr) {
+        render_copper(obj, netlist->get_physical_netlist(), copper_z);
+    } else {
+        render_copper(obj, get_physical_netlist(), copper_z);
+    }
+    obj.to_file(fname);
 }
 
 } // namespace pcb
