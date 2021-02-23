@@ -324,6 +324,9 @@ public:
         ));
     }
 
+    void write_obj(const std::string &fname) {
+        pcb.write_obj(fname);
+    }
 };
 
 namespace py = pybind11;
@@ -401,6 +404,10 @@ PYBIND11_MODULE(_gerbertools, m) {
              py::arg("substrate")=color_to_tuple(color::SUBSTRATE),
              py::arg("copper")=color_to_tuple(color::COPPER),
              "Renders the circuit board to an SVG file."
+         )
+        .def("write_obj", &CircuitBoard::write_obj,
+             py::arg("fname"),
+             "Renders the circuit board to a Wavefront OBJ file."
          );
 
     auto m2 = m.def_submodule("color", "Defines some default colors.");
