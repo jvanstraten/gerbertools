@@ -51,7 +51,9 @@ Work in progress.
 
 The polygon geometry processing is done using the
 [Clipper](http://www.angusj.com/delphi/clipper.php) library, lazily included
-as source files in this repository. It uses the Boost software license.
+as source files in this repository. It uses the Boost software license. The
+same thing goes for [Earcut](https://github.com/mapbox/earcut.hpp/), which uses
+the ICS license. The relevant license text is at the top of the copied files.
 
 Stuff I add will be licensed under MIT, which I'm more familiar with. Either
 way, it'll be permissively licensed.
