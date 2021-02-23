@@ -31,7 +31,6 @@
 #include <sstream>
 #include <cmath>
 #include <limits>
-#include <iostream> // TODO removeme
 #include "gerbertools/netlist.hpp"
 #include "gerbertools/clipper.hpp"
 #include "gerbertools/path.hpp"

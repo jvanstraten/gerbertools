@@ -57,7 +57,7 @@ class build_ext(_build_ext):
                     line = line.split('#')[0].strip()
                     if not line:
                         continue
-                    if line.startswith('OpenQL_BINARY_DIR:STATIC'): # TODO FIXME
+                    if line.startswith('gerber_BINARY_DIR:STATIC'):
                         config_dir = line.split('=', maxsplit=1)[1]
                         if os.path.realpath(config_dir) != os.path.realpath(cbuild_dir):
                             print('removing pybuild/cbuild to avoid CMakeCache error')
