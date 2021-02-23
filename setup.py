@@ -85,6 +85,7 @@ class build_ext(_build_ext):
                 ['-DCMAKE_INSTALL_PREFIX=' + prefix_dir]
                 ['-DPYTHON_DIR=' + os.path.dirname(target)]
                 ['-DPYTHON_EXT=' + os.path.basename(target)]
+                ['-DPYTHON_EXECUTABLE=' + sys.executable]
 
                 # Build type can be set using an environment variable.
                 ['-DCMAKE_BUILD_TYPE=' + build_type]
