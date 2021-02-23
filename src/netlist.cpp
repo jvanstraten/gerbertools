@@ -355,6 +355,8 @@ bool PhysicalNetlist::register_via(const ViaRef &via, size_t num_layers) {
             continue;
         } else if (!target) {
             target = source;
+        } else if (source == target) {
+            continue;
         } else {
             target->merge_with(source);
             nets.remove(source);

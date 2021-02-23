@@ -612,8 +612,8 @@ static void render_copper(
             }
 
             // Add the surfaces.
+            size_t layer = shape->get_layer();
             for (int side = 0; side < 2; side++) {
-                size_t layer = shape->get_layer();
 
                 // Side 0 is the bottom of the sheet, side 1 is the top.
                 double z = side ? zs.second : zs.first;
