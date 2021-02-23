@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     container: quay.io/pypa/manylinux${{ matrix.manylinux }}_x86_64:latest
     env:
-      CMAKE_VERSION: '3.16.0'
+      CMAKE_VERSION: '3.19.5'
     strategy:
       matrix:
         manylinux:
