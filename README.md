@@ -40,7 +40,9 @@ Work in progress.
 
 ## Why?
 
- - Because I want nice PCB renders in Blender.
+ - Because I want nice PCB renders in Blender. Like this:
+
+   ![Example render](assets/example.png?raw=true "Example render")
 
  - Because I have a project in mind that basically requires me to procedurally
    generate PCBs, and I want electrical DRC to check myself. I don't care so
