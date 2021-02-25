@@ -69,7 +69,7 @@ def read(prefix, outline_hint='GKO'):
     if bot_copper:
         pcb.add_copper_layer(bot_copper)
     pcb.add_substrate_layer(substrate_thickness)
-    for _, fname in sorted(mid_copper.items()):
+    for _, fname in reversed(sorted(mid_copper.items())):
         pcb.add_copper_layer(fname)
         pcb.add_substrate_layer(substrate_thickness)
     if top_copper:
