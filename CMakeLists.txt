@@ -51,24 +51,6 @@ install (
     FILES_MATCHING PATTERN "*.hpp*"
 )
 
-# Command line interface.
-add_executable(
-    gerbertools_cli
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
-)
-set_property(
-    TARGET gerbertools_cli
-    PROPERTY OUTPUT_NAME gerbertools
-)
-target_link_libraries(
-    gerbertools_cli
-    PUBLIC gerbertools_objlib
-)
-install(
-    TARGETS gerbertools_cli
-    DESTINATION "${CMAKE_INSTALL_BINDIR}"
-)
-
 # Python extension.
 add_subdirectory(python/pybind11)
 pybind11_add_module(
