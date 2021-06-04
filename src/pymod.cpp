@@ -31,6 +31,7 @@
 #include "gerbertools/coord.hpp"
 #include "gerbertools/path.hpp"
 #include "gerbertools/pcb.hpp"
+#include "gerbertools/version.hpp"
 
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
@@ -281,9 +282,9 @@ public:
         auto bounds = pcb.get_bounds();
         return {
             coord::Format::to_mm(bounds.left),
-            coord::Format::to_mm(bounds.top),
+            coord::Format::to_mm(bounds.bottom),
             coord::Format::to_mm(bounds.right),
-            coord::Format::to_mm(bounds.bottom)
+            coord::Format::to_mm(bounds.top)
         };
     }
 
@@ -383,7 +384,7 @@ PYBIND11_MODULE(_gerbertools, m) {
         .def("add_substrate_layer", &CircuitBoard::add_substrate_layer, py::arg("thickness")=1.5, "Adds a substrate layer. Layers are added bottom-up.")
         .def("add_surface_finish", &CircuitBoard::add_surface_finish, "Derives the surface finish layer for all exposed copper. Call after adding all layers.")
         .def("build_netlist", &CircuitBoard::build_netlist, py::arg("nets"), py::arg("clearance")=0.0, py::arg("annular_ring")=0.0, "Builds a netlist from the PCB and the given list of coordinate, layer index, and net name tuples.")
-        .def("get_bounds", &CircuitBoard::get_bounds, "Returns the axis-aligned bounds of the PCB in millimeters, ordered left, top, right, bottom.")
+        .def("get_bounds", &CircuitBoard::get_bounds, "Returns the axis-aligned bounds of the PCB in millimeters, ordered min_x, min_y, max_x, max_y.")
         .def("get_svg", &CircuitBoard::get_svg,
              py::arg("flipped")=false,
              py::arg("soldermask")=color_to_tuple(color::MASK_GREEN),
@@ -409,6 +410,8 @@ PYBIND11_MODULE(_gerbertools, m) {
              py::arg("fname"),
              "Renders the circuit board to a Wavefront OBJ file."
          );
+
+    m.def("get_version", []() { return GERBERTOOLS_VERSION; }, "Returns GerberTools' version.");
 
     auto m2 = m.def_submodule("color", "Defines some default colors.");
     m2.def("copper", []() { return color_to_tuple(color::COPPER); }, "Returns the default color for copper.");

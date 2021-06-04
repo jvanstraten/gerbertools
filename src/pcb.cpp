@@ -337,7 +337,7 @@ CircuitBoard::CircuitBoard(
     coord::Paths pth, npth;
     read_drill(drill, true, pth, npth);
     if (!drill_nonplated.empty()) {
-        read_drill(drill, false, pth, npth);
+        read_drill(drill_nonplated, false, pth, npth);
     }
 
     // Make board shape.

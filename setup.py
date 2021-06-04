@@ -29,6 +29,7 @@ module_dir = target_dir + os.sep + 'gerbertools' # Python module directory for e
 # telling setuptools is our source directory, because setuptools insists on
 # spamming output files into that directory. This is ugly, especially because
 # it has to run before setup() is invoked, but seems to be more-or-less
+# it has to run before setup() is invoked, but seems to be more-or-less
 # unavoidable to get editable installs to work.
 if not os.path.exists(target_dir):
     os.makedirs(target_dir)
@@ -37,6 +38,12 @@ copy_tree(srcmod_dir, module_dir)
 def read(fname):
     with open(os.path.join(os.path.dirname(__file__), fname)) as f:
         return f.read()
+
+def get_version():
+    text = read('include/gerbertools/version.hpp')
+    text = text.split('GERBERTOOLS_VERSION', maxsplit=1)[1]
+    text = text.split('"', maxsplit=2)[1]
+    return text
 
 class clean(_clean):
     def run(self):
@@ -204,7 +211,7 @@ class egg_info(_egg_info):
 
 setup(
     name='gerbertools',
-    version='0.0.1',
+    version=get_version(),
     description='Tools for inspecting and DRC\'ing PCBs their Gerber files',
     long_description=read('README.md'),
     long_description_content_type = 'text/markdown',
@@ -220,6 +227,7 @@ setup(
 
     packages = ['gerbertools'],
     package_dir = {'': 'pybuild'},
+    entry_points = {'console_scripts': 'gerbertools=gerbertools:main'},
 
     # NOTE: the library build process is completely overridden to let CMake
     # handle it; setuptools' implementation is horribly broken. This is here
