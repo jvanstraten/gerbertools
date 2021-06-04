@@ -234,6 +234,14 @@ bool NCDrill::command(const std::string &cmd) {
             return true;
         }
 
+        // File format.
+        if (cmd == "FMAT,2") {
+            return true;
+        }
+        if (cmd == "VER,1") {
+            throw std::runtime_error("Version 1 excellon is not supported");
+        }
+
         // Unit & coordinate format.
         if (cmd.substr(0, 6) == "METRIC") {
             fmt.configure_mm();
@@ -263,7 +271,7 @@ bool NCDrill::command(const std::string &cmd) {
         }
 
         // End of header.
-        if (cmd == "%") {
+        if (cmd == "%" || cmd == "M95") {
             parse_state = ParseState::BODY;
             return true;
         }
@@ -316,9 +324,13 @@ bool NCDrill::command(const std::string &cmd) {
             if (rout_mode == RoutMode::ROUT_TOOL_DOWN) {
                 throw std::runtime_error("unexpected tool change; tool is down");
             }
+            if (t == 0) {
+                tool.reset();
+                return true;
+            }
             auto it2 = tools.find(t);
             if (it2 == tools.end()) {
-                throw std::runtime_error("attempting to change to undefined tool");
+                throw std::runtime_error("attempting to change to undefined tool: " + std::to_string(t));
             }
             tool = it2->second;
             return true;
@@ -380,10 +392,13 @@ bool NCDrill::command(const std::string &cmd) {
             if (g == 5) {
                 if (rout_mode == RoutMode::ROUT_TOOL_DOWN) {
                     throw std::runtime_error("unexpected G05; cannot exit route mode with tool down");
-                } else if (rout_mode == RoutMode::DRILL) {
-                    throw std::runtime_error("unexpected G05; already in drill mode");
                 }
                 rout_mode = RoutMode::DRILL;
+                return true;
+            }
+
+            // No idea what this does.
+            if (g == 90) {
                 return true;
             }
 

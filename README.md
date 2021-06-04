@@ -59,3 +59,7 @@ the ICS license. The relevant license text is at the top of the copied files.
 
 Stuff I add will be licensed under MIT, which I'm more familiar with. Either
 way, it'll be permissively licensed.
+
+The circuit board files in the test directory have different licenses. They are
+not distributed with or linked to any build, and I have no affiliation with the
+makers/owners of those boards.

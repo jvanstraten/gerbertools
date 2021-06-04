@@ -483,8 +483,12 @@ bool Gerber::command(const std::string &cmd, bool is_attrib) {
         }
 
         // Aperture selection.
-        if (cmd.rfind('D', 0) == 0 && cmd.rfind("D0", 0) != 0) {
-            auto it = apertures.find(std::stoi(cmd.substr(1)));
+        auto ap_cmd = cmd;
+        if (cmd.rfind("G54D", 0) == 0 || cmd.rfind("G55D", 0) == 0) {
+            ap_cmd = ap_cmd.substr(3);
+        }
+        if (ap_cmd.rfind('D', 0) == 0 && ap_cmd.rfind("D0", 0) != 0) {
+            auto it = apertures.find(std::stoi(ap_cmd.substr(1)));
             if (it == apertures.end()) {
                 throw std::runtime_error("undefined aperture selected");
             } else {

@@ -54,7 +54,5 @@ jobs:
         NPROCS: 100
       run: python -m pip install --verbose .
     - name: Test
-      # No (automated) tests yet, and knowing me there probably won't be any.
-      # Just see if the thing loads correctly when imported.
-      #run: python -m pytest
-      run: python -c 'import gerbertools'
+      working-directory: tests
+      run: python -m pytest
