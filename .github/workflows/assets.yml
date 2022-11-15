@@ -15,10 +15,11 @@ jobs:
     strategy:
       matrix:
         python:
-        - '3.6'
         - '3.7'
         - '3.8'
         - '3.9'
+        - '3.10'
+        - '3.11'
     steps:
     - uses: actions/checkout@v2
       with:
@@ -62,10 +63,11 @@ jobs:
         manylinux:
         - 2014
         cpython_version:
-        - 'cp36-cp36m'
         - 'cp37-cp37m'
         - 'cp38-cp38'
         - 'cp39-cp39'
+        - 'cp39-cp310'
+        - 'cp39-cp311'
     steps:
     - uses: actions/checkout@v2
       with:
@@ -105,10 +107,11 @@ jobs:
     strategy:
       matrix:
         python:
-        - '3.6'
         - '3.7'
         - '3.8'
         - '3.9'
+        - '3.10'
+        - '3.11'
     steps:
     - uses: actions/checkout@v2
       with:
