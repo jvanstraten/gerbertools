@@ -7,7 +7,7 @@ import textwrap
 
 __all__ = ['get_version', 'read', 'CircuitBoard', 'Netlist', 'Shape', 'color', 'main']
 
-def read(prefix, outline_hint='GKO'):
+def read(prefix, outline_hint=None):
     """Tries to be smart about file detection to load a PCB. If necessary,
     outline can be used to specify the Gerber file extension used for the
     outline; if not specified, GKO or the lowest GM* mechanical layer will be
@@ -27,9 +27,13 @@ def read(prefix, outline_hint='GKO'):
     top_silk = ''
     bot_silk = ''
     drill = ''
+    drill_nonplated = ''
     outline = {}
 
-    outline_hint = outline_hint.lower()
+    if outline_hint is None:
+        outline_hint = 'gko'
+    else:
+        outline_hint = outline_hint.lower()
 
     for name in os.listdir(dirname):
         if not name.startswith(prefix):
@@ -52,8 +56,11 @@ def read(prefix, outline_hint='GKO'):
             top_silk = fname
         elif ext == 'gbo':
             bot_silk = fname
-        elif ext == 'txt':
-            drill = fname
+        elif ext in ('txt', 'drl'):
+            if 'npth' in name.lower():
+                drill_nonplated = fname
+            else:
+                drill = fname
         elif ext == outline_hint:
             outline[ext] = fname
         elif re.fullmatch(r'gm[0-9]+', ext):
@@ -68,7 +75,7 @@ def read(prefix, outline_hint='GKO'):
 
     substrate_thickness = 1.5 / (1 + len(mid_copper))
 
-    pcb = CircuitBoard('', outline, drill);
+    pcb = CircuitBoard('', outline, drill, drill_nonplated);
     if bot_mask:
         pcb.add_mask_layer(bot_mask, bot_silk);
     if bot_copper:
@@ -125,7 +132,7 @@ def main(args=sys.argv[1:]):
 
         For example, a typical 2-layer stackup would be:
 
-            --stackup "GKO;TXT;m:GBS:GBO;c:GBL;s:1.5;c:GTL;m:GTS;GTO"
+            --stackup "GKO;TXT;m:GBS:GBO;c:GBL;s:1.5;c:GTL;m:GTS:GTO"
 
         Without anything else specified, GerberTools will just try to load the
         circuit board and quit. To do something useful, use --bounds, --size,
@@ -145,72 +152,76 @@ def main(args=sys.argv[1:]):
     )
 
     def parse_stackup(stackup):
-        stackup = stackup.split(';')
+        try:
+            stackup = stackup.split(';')
 
-        outline = stackup[0].split(':')
-        if len(outline) > 2:
-            raise ValueError('at most two outline layers may be specified')
-        elif len(outline) == 1:
-            outline.append('')
+            outline = stackup[0].split(':')
+            if len(outline) > 2:
+                raise ValueError('at most two outline layers may be specified')
+            elif len(outline) == 1:
+                outline.append('')
 
-        drill = stackup[1].split(':') if len(stackup) > 0 else []
-        if len(drill) > 2:
-            raise ValueError('at most two drill files may be specified')
-        while len(drill) < 2:
-            drill.append('')
+            drill = stackup[1].split(':') if len(stackup) > 0 else []
+            if len(drill) > 2:
+                raise ValueError('at most two drill files may be specified')
+            while len(drill) < 2:
+                drill.append('')
 
-        constructor_args = (outline[0], drill[0], drill[1], outline[1])
+            constructor_args = (outline[0], drill[0], drill[1], outline[1])
 
-        layers = []
-        for index, cmd in enumerate(stackup[2:]):
-            args = cmd.split(':')
-            if len(args) < 2:
-                raise ValueError('missing m/c/s command for layer {}'.format(index))
-            if args[0] == 'm':
-                if len(args) > 3:
-                    raise ValueError(
-                        'm(ask) command for layer {} must have 1 or 2 filenames'
-                        .format(index)
-                    )
-                layers.append((CircuitBoard.add_mask_layer, args[1:]))
-            elif args[0] == 'c':
-                if len(args) > 3:
-                    raise ValueError(
-                        'c(opper) command for layer {} must have 1 filename and '
-                        'an optional thickness'
-                        .format(index)
-                    )
-                layer = args[1]
-                if len(args) > 2:
-                    try:
-                        thickness = float(args[2])
-                    except ValueError:
+            layers = []
+            for index, cmd in enumerate(stackup[2:]):
+                args = cmd.split(':')
+                if len(args) < 2:
+                    raise ValueError('missing m/c/s command for layer {}'.format(index))
+                if args[0] == 'm':
+                    if len(args) > 3:
                         raise ValueError(
-                            'c(opper) command for layer {} has invalid thickness'
+                            'm(ask) command for layer {} must have 1 or 2 filenames'
                             .format(index)
                         )
+                    layers.append((CircuitBoard.add_mask_layer, args[1:]))
+                elif args[0] == 'c':
+                    if len(args) > 3:
+                        raise ValueError(
+                            'c(opper) command for layer {} must have 1 filename and '
+                            'an optional thickness'
+                            .format(index)
+                        )
+                    layer = args[1]
+                    if len(args) > 2:
+                        try:
+                            thickness = float(args[2])
+                        except ValueError:
+                            raise ValueError(
+                                'c(opper) command for layer {} has invalid thickness'
+                                .format(index)
+                            )
+                    else:
+                        thickness = 0.0348
+                    layers.append((CircuitBoard.add_copper_layer, (layer, thickness)))
+                elif args[0] == 's':
+                    if len(args) > 2:
+                        raise ValueError(
+                            's(ubstrate) command for layer {} must have a single'
+                            'thickness argument'
+                            .format(index)
+                        )
+                    try:
+                        thickness = float(args[1])
+                    except ValueError:
+                        raise ValueError(
+                            's(ubstrate) command for layer {} has invalid thickness'
+                            .format(index)
+                        )
+                    layers.append((CircuitBoard.add_substrate_layer, (thickness,)))
                 else:
-                    thickness = 0.0348
-                layers.append((CircuitBoard.add_copper_layer, (layer, thickness)))
-            elif args[0] == 's':
-                if len(args) > 2:
-                    raise ValueError(
-                        's(ubstrate) command for layer {} must have a single'
-                        'thickness argument'
-                        .format(index)
-                    )
-                try:
-                    thickness = float(args[1])
-                except ValueError:
-                    raise ValueError(
-                        's(ubstrate) command for layer {} has invalid thickness'
-                        .format(index)
-                    )
-                layers.append((CircuitBoard.add_substrate_layer, (thickness,)))
-            else:
-                raise ValueError('unknown command {} for layer {}'.format(cmd[0], index))
+                    raise ValueError('unknown command {} for layer {}'.format(cmd[0], index))
 
-        return constructor_args, layers
+            return constructor_args, layers
+        except Exception as e:
+            print(e)
+            raise
 
     parser.add_argument(
         'prefix',

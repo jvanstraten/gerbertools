@@ -397,6 +397,45 @@ bool NCDrill::command(const std::string &cmd) {
                 return true;
             }
 
+            // Alternate form for linear rout, using a single command.
+            if (g == 85) {
+
+                // This command is a bit different from all others in that it
+                // uses X and Y twice, once before and once after the G
+                // command.
+                pos = start_point;
+                params = parse_regular_command(cmd.substr(0, cmd.find('G')));
+                it = params.find('X');
+                if (it != params.end()) {
+                    pos.X = fmt.parse_fixed(it->second);
+                }
+                it = params.find('Y');
+                if (it != params.end()) {
+                    pos.Y = fmt.parse_fixed(it->second);
+                }
+                start_point = pos;
+                params = parse_regular_command(cmd.substr(cmd.find('G')));
+                it = params.find('X');
+                if (it != params.end()) {
+                    pos.X = fmt.parse_fixed(it->second);
+                }
+                it = params.find('Y');
+                if (it != params.end()) {
+                    pos.Y = fmt.parse_fixed(it->second);
+                }
+                end_point = pos;
+
+                // Now generate the rout.
+                if (rout_mode != RoutMode::DRILL) {
+                    throw std::runtime_error("unexpected G85 in rout mode");
+                }
+                path.push_back(start_point);
+                path.push_back(end_point);
+                commit_path();
+
+                return true;
+            }
+
             // No idea what this does.
             if (g == 90) {
                 return true;
