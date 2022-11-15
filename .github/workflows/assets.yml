@@ -67,8 +67,8 @@ jobs:
         - 'cp37-cp37m'
         - 'cp38-cp38'
         - 'cp39-cp39'
-        - 'cp39-cp310'
-        - 'cp39-cp311'
+        - 'cp310-cp310'
+        - 'cp311-cp311'
     steps:
     - uses: actions/checkout@v2
       with:
