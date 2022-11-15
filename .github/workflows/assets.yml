@@ -37,7 +37,8 @@ jobs:
     - name: Wheel path
       id: wheel
       working-directory: pybuild/dist/
-      run: echo "##[set-output name=wheel;]$(ls *.whl)"
+      #run: echo "##[set-output name=wheel;]$(ls *.whl)"
+      run: echo "wheel=$(ls *.whl)" >> $GITHUB_OUTPUT
     - uses: actions/upload-artifact@v2
       with:
         name: pypi-macos-py${{ matrix.python }}
@@ -86,7 +87,8 @@ jobs:
     - name: Wheel path
       id: wheel
       working-directory: wheelhouse
-      run: echo "##[set-output name=wheel;]$(ls *.whl)"
+      #run: echo "##[set-output name=wheel;]$(ls *.whl)"
+      run: echo "wheel=$(ls *.whl)" >> $GITHUB_OUTPUT
     - uses: actions/upload-artifact@v2
       with:
         name: pypi-linux-${{ matrix.cpython_version }}
@@ -118,7 +120,7 @@ jobs:
     - uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python }}
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       with:
         path: C:\Users\runneradmin\AppData\Local\Temp\chocolatey
         key: ${{ runner.os }}-chocolatey-python-1
@@ -135,7 +137,8 @@ jobs:
     - name: Wheel path
       id: wheel
       working-directory: pybuild/dist/
-      run: echo "##[set-output name=wheel;]$(Get-ChildItem -name *.whl)"
+      #run: echo "##[set-output name=wheel;]$(Get-ChildItem -name *.whl)"
+      run: echo "wheel=$(Get-ChildItem -name *.whl)" >> $GITHUB_OUTPUT
     - uses: actions/upload-artifact@v2
       with:
         name: pypi-windows-py${{ matrix.python }}
