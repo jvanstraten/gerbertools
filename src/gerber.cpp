@@ -408,6 +408,11 @@ bool Gerber::command(const std::string &cmd, bool is_attrib) {
             return true;
         }
 
+        // Unsupported attributes that can be ignored.
+        if (cmd.rfind("TA", 0) == 0) {
+            return true;
+        }
+
         // Load polarity.
         if (cmd.rfind("LP", 0) == 0) {
             if (cmd.size() != 3 || !(cmd.at(2) == 'C' || cmd.at(2) == 'D')) {
