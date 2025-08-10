@@ -29,6 +29,7 @@
 
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <cstdint>
 #include "gerbertools/gerber.hpp"
 #include "gerbertools/pcb.hpp"
 #include "gerbertools/path.hpp"
